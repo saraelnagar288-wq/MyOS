@@ -1,0 +1,39 @@
+name: Build MyOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install OS toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm grub-pc-bin grub-common xorriso qemu-system-x86 gcc binutils make
+
+      - name: Build bootable ISO
+        working-directory: MyOS/core
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Validate ISO
+        working-directory: MyOS/core
+        run: |
+          file MyOS.iso
+          test -s MyOS.iso
+
+      - name: Upload MyOS ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyOS-ISO
+          path: MyOS/core/MyOS.iso
+          if-no-files-found: error
