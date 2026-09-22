@@ -1,0 +1,6 @@
+{
+  "name": "MyOS x86-64 Operating System",
+  "description": "A complete 64-bit operating system for x86-64 hardware and QEMU, featuring custom kernel, memory management, preemptive scheduler, VFS, window manager, and MyOS desktop.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
