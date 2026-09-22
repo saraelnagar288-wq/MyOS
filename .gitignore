@@ -6,3 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
+
+*.o
+MyOS/core/iso/
+MyOS/core/myos.bin
+MyOS/core/MyOS.iso
