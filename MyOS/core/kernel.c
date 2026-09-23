@@ -53,6 +53,32 @@ static void draw_launcher(void){
  text(x+24,y+238,"System",0xFF8B98AB);text(x+24,y+268,"Display",0xFFD5DCE7);text(x+24,y+290,"Network",0xFFD5DCE7);text(x+24,y+312,"Appearance",0xFFD5DCE7);
  text(x+24,y+356,"Press ESC to return to desktop",0xFF6EE7B7);
 }
+static int mouse_x,mouse_y,mouse_cycle,mouse_buttons,cursor_visible;
+static uint8_t mouse_packet[3]; static uint32_t cursor_saved[20*20];
+static int ps2_wait_write(void){for(uint32_t i=0;i<100000;i++)if(!(inb(0x64)&2))return 1;return 0;}
+static int ps2_wait_read(void){for(uint32_t i=0;i<100000;i++)if(inb(0x64)&1)return 1;return 0;}
+static void mouse_write(uint8_t v){if(!ps2_wait_write())return;outb(0x64,0xD4);if(!ps2_wait_write())return;outb(0x60,v);}
+static uint8_t mouse_read_timeout(void){return ps2_wait_read()?inb(0x60):0;}
+static void mouse_init(void){
+ if(!ps2_wait_write())return;outb(0x64,0xA8);
+ if(!ps2_wait_write())return;outb(0x64,0x20);uint8_t cfg=mouse_read_timeout();
+ cfg=(uint8_t)((cfg|2u)&(uint8_t)~0x20u);
+ if(ps2_wait_write())outb(0x64,0x60);if(ps2_wait_write())outb(0x60,cfg);
+ mouse_write(0xF6);(void)mouse_read_timeout();mouse_write(0xF4);(void)mouse_read_timeout();
+}
+static void cursor_save(int x,int y){for(int yy=0;yy<20;yy++)for(int xx=0;xx<20;xx++){int px=x+xx,py=y+yy;cursor_saved[yy*20+xx]=(px>=0&&py>=0&&(uint32_t)px<sw&&(uint32_t)py<sh)?fb[py*(pitch/4)+px]:0;}}
+static void cursor_restore(int x,int y){for(int yy=0;yy<20;yy++)for(int xx=0;xx<20;xx++){int px=x+xx,py=y+yy;if(px>=0&&py>=0&&(uint32_t)px<sw&&(uint32_t)py<sh)fb[py*(pitch/4)+px]=cursor_saved[yy*20+xx];}}
+static void cursor_draw(int x,int y){cursor_save(x,y);for(int i=0;i<18;i++){int px=x+i,py=y+i;if(px>=0&&py>=0&&(uint32_t)px<sw&&(uint32_t)py<sh)fb[py*(pitch/4)+px]=0xFFFFFFFF;}for(int i=0;i<12;i++){int px=x+5+i,py=y+14;if(px>=0&&py>=0&&(uint32_t)px<sw&&(uint32_t)py<sh)fb[py*(pitch/4)+px]=0xFFFFFFFF;}cursor_visible=1;}
+static void cursor_hide(void){if(cursor_visible){cursor_restore(mouse_x,mouse_y);cursor_visible=0;}}
+static void cursor_move(int nx,int ny){if(nx<0)nx=0;if(ny<0)ny=0;if(nx>(int)sw-20)nx=(int)sw-20;if(ny>(int)sh-20)ny=(int)sh-20;if(nx==mouse_x&&ny==mouse_y)return;cursor_hide();mouse_x=nx;mouse_y=ny;cursor_draw(mouse_x,mouse_y);}
+static void mouse_poll(void){
+ while(inb(0x64)&1){uint8_t st=inb(0x64),d=inb(0x60);if(!(st&0x20))continue;
+  if(mouse_cycle==0){if(!(d&8))continue;mouse_packet[0]=d;mouse_cycle=1;}
+  else if(mouse_cycle==1){mouse_packet[1]=d;mouse_cycle=2;}
+  else{mouse_packet[2]=d;mouse_cycle=0;int dx=(int8_t)mouse_packet[1],dy=(int8_t)mouse_packet[2];cursor_move(mouse_x+dx*2,mouse_y-dy*2);mouse_buttons=mouse_packet[0]&7;}
+ }
+}
+
 static void desktop(void){
  rect(0,0,sw,sh,0xFF0B1020);rect(0,60,sw,sh-112,0xFF101827);rect(sw/2,60,sw/2,sh-112,0xFF111D31);
  rect(0,0,sw,60,0xFF171D29);line(0,59,sw,0xFF2D394C);rect(18,16,28,28,0xFF3B82F6);grid(23,20,0xFFFFFFFF);
@@ -89,5 +115,5 @@ void kernel_main(uint64_t magic,struct multiboot_info*mb){
  mouse_init();
  cursor_draw(mouse_x,mouse_y);
  serial_puts("MyOS: desktop + PS2 mouse ready\r\n");
- for(;;){input();__asm__ volatile("pause");}
+ for(;;){input();mouse_poll();__asm__ volatile("pause");}
 }
