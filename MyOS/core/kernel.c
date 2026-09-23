@@ -45,7 +45,7 @@ static void serial_puts(const char *s) {
 }
 
 static void halt(void) {
-    for (;;) __asm__ volatile ("hlt");
+    for (;;) { poll_input(); __asm__ volatile ("hlt"); }
 }
 
 static uint32_t *fb;
@@ -73,7 +73,7 @@ static const uint8_t font8x8[96][8] = {
 #include "font8x8.inc"
 };
 
-static void draw_char(uint32_t x, uint32_t y, char ch, uint32_t fg) {
+static void draw_char(uint32_t x, uint32_t y, int ch, uint32_t fg) {
     if (ch < 32 || ch > 127) ch = '?';
     const uint8_t *g = font8x8[(uint8_t)ch - 32];
     for (uint32_t row = 0; row < 8; ++row)
@@ -89,31 +89,78 @@ static void draw_text(uint32_t x, uint32_t y, const char *s, uint32_t fg) {
     }
 }
 
+static void line(uint32_t x,uint32_t y,uint32_t w,uint32_t c){fill_rect(x,y,w,1,c);}
+static void frame(uint32_t x,uint32_t y,uint32_t w,uint32_t h,uint32_t c){
+    line(x,y,w,c); line(x,y+h-1,w,c); fill_rect(x,y,1,h,c); fill_rect(x+w-1,y,1,h,c);
+}
+static void icon_grid(uint32_t x,uint32_t y,uint32_t c){
+    fill_rect(x,y,7,7,c); fill_rect(x+10,y,7,7,c);
+    fill_rect(x,y+10,7,7,c); fill_rect(x+10,y+10,7,7,c);
+}
+static void icon_folder(uint32_t x,uint32_t y){
+    fill_rect(x,y+5,25,17,0xFFF4C95D); fill_rect(x+3,y+2,11,6,0xFFFFDD8A);
+}
+static void icon_terminal(uint32_t x,uint32_t y){
+    frame(x,y,27,22,0xFFB7C3D0); fill_rect(x+5,y+9,5,2,0xFF5EEAD4);
+    fill_rect(x+12,y+9,8,2,0xFF5EEAD4);
+}
+static void icon_settings(uint32_t x,uint32_t y){
+    fill_rect(x+9,y,9,24,0xFFB8C2D1); fill_rect(x,y+8,27,9,0xFFB8C2D1);
+    fill_rect(x+10,y+10,7,7,0xFF151A23);
+}
+static void modern_window(uint32_t x,uint32_t y,uint32_t w,uint32_t h,const char*t,uint32_t a){
+    fill_rect(x+7,y+7,w,h,0x55000000); fill_rect(x,y,w,h,0xFF182130); frame(x,y,w,h,0xFF354155);
+    fill_rect(x,y,w,38,0xFF202A3A); fill_rect(x,y,4,38,a);
+    draw_text(x+18,y+15,t,0xFFFFFFFF);
+    fill_rect(x+w-72,y+14,8,8,0xFF8794A8); fill_rect(x+w-50,y+14,8,8,0xFF8794A8);
+    fill_rect(x+w-28,y+14,8,8,0xFFF87171);
+}
+static void draw_launcher(void){
+    uint32_t w=fb_width>850?560:fb_width-80,h=fb_height>650?430:fb_height-150;
+    uint32_t x=(fb_width-w)/2,y=(fb_height-h)/2;
+    fill_rect(x+8,y+8,w,h,0x55000000); fill_rect(x,y,w,h,0xFF141B28); frame(x,y,w,h,0xFF40506A);
+    fill_rect(x,y,w,62,0xFF1E2736); draw_text(x+24,y+22,"Search MyOS",0xFF8B98AB);
+    line(x+24,y+48,w-48,0xFF344155); draw_text(x+24,y+86,"Applications",0xFF8B98AB);
+    fill_rect(x+24,y+112,150,88,0xFF202A3A); icon_folder(x+48,y+132); draw_text(x+48,y+166,"Files",0xFFFFFFFF);
+    fill_rect(x+192,y+112,150,88,0xFF202A3A); icon_terminal(x+214,y+132); draw_text(x+214,y+166,"Terminal",0xFFFFFFFF);
+    fill_rect(x+360,y+112,150,88,0xFF202A3A); icon_settings(x+382,y+132); draw_text(x+382,y+166,"Settings",0xFFFFFFFF);
+    draw_text(x+24,y+238,"System",0xFF8B98AB); draw_text(x+24,y+268,"Display",0xFFD5DCE7);
+    draw_text(x+24,y+290,"Network",0xFFD5DCE7); draw_text(x+24,y+312,"Appearance",0xFFD5DCE7);
+    draw_text(x+24,y+356,"Press ESC to return to desktop",0xFF6EE7B7);
+}
 static void draw_desktop(void) {
-    fill_rect(0, 0, fb_width, fb_height, 0xFF111318);
-    fill_rect(0, 0, fb_width, 42, 0xFF1C2028);
-    fill_rect(0, fb_height - 52, fb_width, 52, 0xFF1C2028);
+    fill_rect(0,0,fb_width,fb_height,0xFF0B1020);
+    fill_rect(0,60,fb_width,fb_height-112,0xFF101827);
+    fill_rect(fb_width/2,60,fb_width/2,fb_height-112,0xFF111D31);
+    fill_rect(0,0,fb_width,60,0xFF171D29); line(0,59,fb_width,0xFF2D394C);
+    fill_rect(18,16,28,28,0xFF3B82F6); icon_grid(23,20,0xFFFFFFFF);
+    draw_text(58,18,"MyOS",0xFFFFFFFF); draw_text(58,34,"Native Desktop",0xFF8B98AB);
+    if(fb_width>520){draw_text(fb_width-305,23,"CPU",0xFF8B98AB);draw_text(fb_width-265,23,"RAM",0xFF8B98AB);
+        draw_text(fb_width-215,23,"NET",0xFF8B98AB);draw_text(fb_width-155,23,"17:42",0xFFFFFFFF);}
+    icon_folder(34,92); draw_text(30,120,"Files",0xFFE8EDF5);
+    icon_terminal(34,156); draw_text(25,184,"Terminal",0xFFE8EDF5);
+    icon_settings(34,220); draw_text(22,248,"Settings",0xFFE8EDF5);
+    uint32_t w=fb_width>900?650:(fb_width>700?570:fb_width-120),h=330,x=(fb_width-w)/2,y=100;
+    modern_window(x,y,w,h,"Welcome to MyOS",0xFF3B82F6);
+    draw_text(x+34,y+70,"A native x86-64 desktop.",0xFFFFFFFF);
+    draw_text(x+34,y+94,"Fast, simple and built from the kernel up.",0xFFB7C3D0);
+    line(x+34,y+130,w-68,0xFF344155); draw_text(x+34,y+154,"Quick access",0xFF8B98AB);
+    fill_rect(x+34,y+180,150,72,0xFF202A3A); icon_folder(x+52,y+198); draw_text(x+52,y+224,"Files",0xFFFFFFFF);
+    fill_rect(x+204,y+180,150,72,0xFF202A3A); icon_terminal(x+222,y+198); draw_text(x+222,y+224,"Terminal",0xFFFFFFFF);
+    fill_rect(x+374,y+180,150,72,0xFF202A3A); icon_settings(x+392,y+198); draw_text(x+392,y+224,"Settings",0xFFFFFFFF);
+    draw_text(x+34,y+286,"Keyboard: S = launcher   Esc = close",0xFF6EE7B7);
+    uint32_t ty=fb_height-52; fill_rect(0,ty,fb_width,52,0xFF171D29); line(0,ty,fb_width,0xFF303B4E);
+    fill_rect(14,ty+10,34,32,0xFF2563EB); icon_grid(22,ty+16,0xFFFFFFFF);
+    fill_rect(62,ty+10,44,32,0xFF202A3A); icon_folder(72,ty+15);
+    fill_rect(112,ty+10,44,32,0xFF202A3A); icon_terminal(121,ty+15);
+    fill_rect(162,ty+10,44,32,0xFF202A3A); icon_settings(171,ty+15);
+    if(launcher_open) draw_launcher();
+}
 
-    fill_rect(22, fb_height - 40, 30, 30, 0xFF2563EB);
-    fill_rect(64, fb_height - 40, 30, 30, 0xFF2B303A);
-    fill_rect(106, fb_height - 40, 30, 30, 0xFF2B303A);
-
-    fill_rect(30, 76, 560, 320, 0xFF1C2028);
-    fill_rect(30, 76, 560, 34, 0xFF2563EB);
-    fill_rect(42, 88, 8, 8, 0xFFFFFFFF);
-    fill_rect(58, 88, 8, 8, 0xFFFFD166);
-    fill_rect(74, 88, 8, 8, 0xFFFF5C5C);
-
-    draw_text(46, 136, "MyOS", 0xFFFFFFFF);
-    draw_text(46, 158, "Native x86-64 kernel", 0xFF9CA3AF);
-    draw_text(46, 180, "Bootloader -> kernel -> framebuffer", 0xFF9CA3AF);
-    draw_text(46, 214, "Foundation build is active.", 0xFF06B6D4);
-    draw_text(46, 236, "Next: memory, interrupts, PCI, storage,", 0xFFD1D5DB);
-    draw_text(46, 248, "processes, drivers and native applications.", 0xFFD1D5DB);
-
-    draw_text(32, 20, "MyOS Desktop", 0xFFFFFFFF);
-    draw_text(fb_width > 180 ? fb_width - 150 : 10, 20, "x86-64", 0xFF9CA3AF);
-    draw_text(34, fb_height - 22, "MyOS", 0xFFFFFFFF);
+static uint8_t keyboard_scancode(void){ if(!(inb(0x64)&1)) return 0; return inb(0x60); }
+static void poll_input(void){ uint8_t sc=keyboard_scancode(); if(!sc || (sc&0x80)) return;
+    if(sc==0x1F){ launcher_open=1; draw_desktop(); }
+    if(sc==0x01){ launcher_open=0; draw_desktop(); }
 }
 
 void kernel_main(uint64_t magic, struct multiboot_info *mb_info) {
