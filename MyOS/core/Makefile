@@ -5,7 +5,7 @@ GRUB_MKRESCUE ?= grub-mkrescue
 
 CFLAGS := -m64 -ffreestanding -fno-stack-protector -fno-pie -no-pie \
           -mno-red-zone -mno-mmx -mno-sse -mno-sse2 \
-          -Wall -Wextra -Werror -O2 -I.
+          -Wall -Wextra -Werror -Wno-missing-braces -Wno-array-bounds -O2 -I.
 
 all: MyOS.iso
 
