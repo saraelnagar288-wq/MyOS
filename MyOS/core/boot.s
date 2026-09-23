@@ -23,6 +23,7 @@ pd_table0:  resb 4096
 pd_table1:  resb 4096
 pd_table2:  resb 4096
 pd_table3:  resb 4096
+multiboot_info_ptr: resd 1
 stack_bottom: resb 32768
 stack_top:
 
@@ -48,6 +49,10 @@ _start:
 
     cmp eax, 0x2BADB002
     jne .bad_multiboot
+
+    ; GRUB supplies the Multiboot information pointer in EBX.
+    ; Preserve it before any helper is allowed to clobber EBX.
+    mov [multiboot_info_ptr], ebx
 
     call check_cpuid
     call check_long_mode
@@ -173,7 +178,7 @@ long_mode_start:
 
     ; System V AMD64: RDI = multiboot magic, RSI = multiboot info pointer.
     mov edi, 0x2BADB002
-    mov esi, ebx
+    mov esi, dword [multiboot_info_ptr]
     call kernel_main
 
 .hang:
