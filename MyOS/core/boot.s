@@ -19,7 +19,10 @@ section .bss
 align 4096
 pml4_table: resb 4096
 pdp_table:  resb 4096
-pd_table:   resb 4096
+pd_table0:  resb 4096
+pd_table1:  resb 4096
+pd_table2:  resb 4096
+pd_table3:  resb 4096
 stack_bottom: resb 32768
 stack_top:
 
@@ -99,16 +102,41 @@ setup_page_tables:
     or eax, 0x3
     mov [pml4_table], eax
 
-    mov eax, pd_table
+    mov eax, pd_table0
     or eax, 0x3
     mov [pdp_table], eax
+    mov eax, pd_table1
+    or eax, 0x3
+    mov [pdp_table + 8], eax
+    mov eax, pd_table2
+    or eax, 0x3
+    mov [pdp_table + 16], eax
+    mov eax, pd_table3
+    or eax, 0x3
+    mov [pdp_table + 24], eax
 
+    mov edi, pd_table0
+    xor ebx, ebx
+    call map_pd
+    mov edi, pd_table1
+    mov ebx, 512
+    call map_pd
+    mov edi, pd_table2
+    mov ebx, 1024
+    call map_pd
+    mov edi, pd_table3
+    mov ebx, 1536
+    call map_pd
+    ret
+
+map_pd:
     xor ecx, ecx
 .map:
-    mov eax, ecx
+    mov eax, ebx
+    add eax, ecx
     shl eax, 21
     or eax, 0x83
-    mov [pd_table + ecx * 8], eax
+    mov [edi + ecx * 8], eax
     inc ecx
     cmp ecx, 512
     jne .map
