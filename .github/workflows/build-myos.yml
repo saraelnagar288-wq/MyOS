@@ -17,7 +17,7 @@ jobs:
       - name: Install OS toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y nasm grub-pc-bin grub-common xorriso mtools qemu-system-x86 gcc binutils make
+          sudo apt-get install -y nasm grub-pc-bin grub-efi-amd64-bin grub-common xorriso mtools qemu-system-x86 ovmf gcc binutils make
 
       - name: Build bootable ISO
         working-directory: MyOS/core
@@ -30,10 +30,36 @@ jobs:
         run: |
           file MyOS.iso
           test -s MyOS.iso
+          xorriso -indev MyOS.iso -report_el_torito plain
+          sha256sum MyOS.iso | tee MyOS.iso.sha256
 
-      - name: Upload MyOS ISO
+      - name: BIOS boot smoke test
+        working-directory: MyOS/core
+        run: |
+          set +e
+          timeout 8s qemu-system-x86_64 -cdrom MyOS.iso -m 256M -vga std -serial stdio -display none
+          status=$?
+          if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
+            echo "QEMU BIOS smoke test failed with exit code $status"
+            exit "$status"
+          fi
+
+      - name: UEFI boot smoke test
+        working-directory: MyOS/core
+        run: |
+          set +e
+          timeout 8s qemu-system-x86_64 -cdrom MyOS.iso -m 256M -vga std -serial stdio -display none             -bios /usr/share/OVMF/OVMF_CODE_4M.fd
+          status=$?
+          if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
+            echo "QEMU UEFI smoke test failed with exit code $status"
+            exit "$status"
+          fi
+
+      - name: Upload MyOS USB image
         uses: actions/upload-artifact@v4
         with:
-          name: MyOS-ISO
-          path: MyOS/core/MyOS.iso
+          name: MyOS-USB-ISO
+          path: |
+            MyOS/core/MyOS.iso
+            MyOS/core/MyOS.iso.sha256
           if-no-files-found: error
