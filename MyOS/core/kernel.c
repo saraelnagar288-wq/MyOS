@@ -15,8 +15,14 @@ static uint32_t *fb; static uint32_t pitch,sw,sh; static uint8_t launcher_open;
 static void outb(uint16_t p,uint8_t v){__asm__ volatile("outb %0,%1"::"a"(v),"Nd"(p));}
 static uint8_t inb(uint16_t p){uint8_t v;__asm__ volatile("inb %1,%0":"=a"(v):"Nd"(p));return v;}
 static void serial_init(void){outb(0x3F9,0);outb(0x3FB,0x80);outb(0x3F8,3);outb(0x3F9,0);outb(0x3FB,3);outb(0x3FC,3);outb(0x3FA,0xC7);}
-static void serial_puts(const char*s){while(*s){while(!(inb(0x3FD)&0x20)){}outb(0x3F8,(uint8_t)*s++);}}
+static void serial_puts(const char*s){while(*s)outb(0x3F8,(uint8_t)*s++);}
 static void halt(void){for(;;)__asm__ volatile("hlt");}
+
+static volatile uint16_t *vga=(volatile uint16_t*)0xB8000;
+static void vga_msg(const char*s,uint8_t color){
+ uint32_t i=0;
+ while(*s && i<80*25){vga[i++]=((uint16_t)color<<8)|(uint8_t)*s++;}
+}
 static void rect(uint32_t x,uint32_t y,uint32_t w,uint32_t h,uint32_t c){if(!fb||x>=sw||y>=sh)return;if(x+w>sw)w=sw-x;if(y+h>sh)h=sh-y;for(uint32_t yy=y;yy<y+h;yy++)for(uint32_t xx=x;xx<x+w;xx++)fb[yy*(pitch/4)+xx]=c;}
 static void line(uint32_t x,uint32_t y,uint32_t w,uint32_t c){rect(x,y,w,1,c);}
 static void frame(uint32_t x,uint32_t y,uint32_t w,uint32_t h,uint32_t c){line(x,y,w,c);line(x,y+h-1,w,c);rect(x,y,1,h,c);rect(x+w-1,y,1,h,c);}
@@ -36,7 +42,6 @@ static void window(uint32_t x,uint32_t y,uint32_t w,uint32_t h,const char*t,uint
  rect(x,y,w,38,0xFF202A3A);rect(x,y,4,38,a);text(x+18,y+15,t,0xFFFFFFFF);
  rect(x+w-72,y+14,8,8,0xFF8794A8);rect(x+w-50,y+14,8,8,0xFF8794A8);rect(x+w-28,y+14,8,8,0xFFF87171);
 }
-
 static void draw_launcher(void){
  uint32_t w=sw>850?560:sw-80,h=sh>650?430:sh-150,x=(sw-w)/2,y=(sh-h)/2;
  rect(x+8,y+8,w,h,0x55000000);rect(x,y,w,h,0xFF141B28);frame(x,y,w,h,0xFF40506A);
@@ -48,7 +53,6 @@ static void draw_launcher(void){
  text(x+24,y+238,"System",0xFF8B98AB);text(x+24,y+268,"Display",0xFFD5DCE7);text(x+24,y+290,"Network",0xFFD5DCE7);text(x+24,y+312,"Appearance",0xFFD5DCE7);
  text(x+24,y+356,"Press ESC to return to desktop",0xFF6EE7B7);
 }
-
 static void desktop(void){
  rect(0,0,sw,sh,0xFF0B1020);rect(0,60,sw,sh-112,0xFF101827);rect(sw/2,60,sw/2,sh-112,0xFF111D31);
  rect(0,0,sw,60,0xFF171D29);line(0,59,sw,0xFF2D394C);rect(18,16,28,28,0xFF3B82F6);grid(23,20,0xFFFFFFFF);
@@ -67,15 +71,20 @@ static void desktop(void){
  rect(112,ty+10,44,32,0xFF202A3A);terminal(121,ty+15);rect(162,ty+10,44,32,0xFF202A3A);settings(171,ty+15);
  if(launcher_open)draw_launcher();
 }
-
 static void input(void){if(!(inb(0x64)&1))return;uint8_t s=inb(0x60);if(s&0x80)return;if(s==0x1F){launcher_open=1;desktop();}if(s==0x01){launcher_open=0;desktop();}}
 
 void kernel_main(uint64_t magic,struct multiboot_info*mb){
- serial_init();serial_puts("MyOS: kernel start\r\n");
- if((uint32_t)magic!=MULTIBOOT_MAGIC||!mb) halt();
- if(!(mb->flags&FB_FLAG)||!mb->framebuffer_addr) halt();
- if(mb->framebuffer_bpp!=32||!mb->framebuffer_pitch) halt();
- fb=(uint32_t*)(uintptr_t)mb->framebuffer_addr;pitch=mb->framebuffer_pitch;sw=mb->framebuffer_width;sh=mb->framebuffer_height;
- desktop();serial_puts("MyOS: native desktop rendered\r\n");
+ serial_init();
+ serial_puts("MyOS: kernel start\r\n");
+ if((uint32_t)magic!=MULTIBOOT_MAGIC||!mb){vga_msg("MyOS: invalid Multiboot data",0x4F);halt();}
+ if(!(mb->flags&FB_FLAG)||!mb->framebuffer_addr||mb->framebuffer_bpp!=32||!mb->framebuffer_pitch){
+  vga_msg("MyOS: framebuffer unavailable",0x4E);
+  halt();
+ }
+ fb=(uint32_t*)(uintptr_t)mb->framebuffer_addr;
+ pitch=mb->framebuffer_pitch;sw=mb->framebuffer_width;sh=mb->framebuffer_height;
+ if(sw<320||sh<200){vga_msg("MyOS: invalid framebuffer size",0x4E);halt();}
+ desktop();
+ serial_puts("MyOS: native desktop rendered\r\n");
  for(;;){input();__asm__ volatile("hlt");}
 }
