@@ -10,7 +10,7 @@ struct multiboot_info {
  uint8_t framebuffer_bpp,framebuffer_type,color_info[6];
 } __attribute__((packed));
 
-static uint32_t *fb; static uint32_t pitch,sw,sh; static uint8_t launcher;
+static uint32_t *fb; static uint32_t pitch,sw,sh; static uint8_t launcher_open;
 
 static void outb(uint16_t p,uint8_t v){__asm__ volatile("outb %0,%1"::"a"(v),"Nd"(p));}
 static uint8_t inb(uint16_t p){uint8_t v;__asm__ volatile("inb %1,%0":"=a"(v):"Nd"(p));return v;}
@@ -37,7 +37,7 @@ static void window(uint32_t x,uint32_t y,uint32_t w,uint32_t h,const char*t,uint
  rect(x+w-72,y+14,8,8,0xFF8794A8);rect(x+w-50,y+14,8,8,0xFF8794A8);rect(x+w-28,y+14,8,8,0xFFF87171);
 }
 
-static void launcher(void){
+static void draw_launcher(void){
  uint32_t w=sw>850?560:sw-80,h=sh>650?430:sh-150,x=(sw-w)/2,y=(sh-h)/2;
  rect(x+8,y+8,w,h,0x55000000);rect(x,y,w,h,0xFF141B28);frame(x,y,w,h,0xFF40506A);
  rect(x,y,w,62,0xFF1E2736);text(x+24,y+22,"Search MyOS",0xFF8B98AB);line(x+24,y+48,w-48,0xFF344155);
@@ -65,14 +65,16 @@ static void desktop(void){
  uint32_t ty=sh-52;rect(0,ty,sw,52,0xFF171D29);line(0,ty,sw,0xFF303B4E);
  rect(14,ty+10,34,32,0xFF2563EB);grid(22,ty+16,0xFFFFFFFF);rect(62,ty+10,44,32,0xFF202A3A);folder(72,ty+15);
  rect(112,ty+10,44,32,0xFF202A3A);terminal(121,ty+15);rect(162,ty+10,44,32,0xFF202A3A);settings(171,ty+15);
- if(launcher)launcher();
+ if(launcher_open)draw_launcher();
 }
 
-static void input(void){if(!(inb(0x64)&1))return;uint8_t s=inb(0x60);if(s&0x80)return;if(s==0x1F){launcher=1;desktop();}if(s==0x01){launcher=0;desktop();}}
+static void input(void){if(!(inb(0x64)&1))return;uint8_t s=inb(0x60);if(s&0x80)return;if(s==0x1F){launcher_open=1;desktop();}if(s==0x01){launcher_open=0;desktop();}}
 
 void kernel_main(uint64_t magic,struct multiboot_info*mb){
  serial_init();serial_puts("MyOS: kernel start\r\n");
- if((uint32_t)magic!=MULTIBOOT_MAGIC||!mb)halt();if(!(mb->flags&FB_FLAG)||!mb->framebuffer_addr)halt();if(mb->framebuffer_bpp!=32||!mb->framebuffer_pitch)halt();
+ if((uint32_t)magic!=MULTIBOOT_MAGIC||!mb) halt();
+ if(!(mb->flags&FB_FLAG)||!mb->framebuffer_addr) halt();
+ if(mb->framebuffer_bpp!=32||!mb->framebuffer_pitch) halt();
  fb=(uint32_t*)(uintptr_t)mb->framebuffer_addr;pitch=mb->framebuffer_pitch;sw=mb->framebuffer_width;sh=mb->framebuffer_height;
  desktop();serial_puts("MyOS: native desktop rendered\r\n");
  for(;;){input();__asm__ volatile("hlt");}
