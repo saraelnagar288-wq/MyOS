@@ -57,15 +57,15 @@ static void desktop(void){
  rect(0,0,sw,sh,0xFF0B1020);rect(0,60,sw,sh-112,0xFF101827);rect(sw/2,60,sw/2,sh-112,0xFF111D31);
  rect(0,0,sw,60,0xFF171D29);line(0,59,sw,0xFF2D394C);rect(18,16,28,28,0xFF3B82F6);grid(23,20,0xFFFFFFFF);
  text(58,18,"MyOS",0xFFFFFFFF);text(58,34,"Native Desktop",0xFF8B98AB);
- if(sw>520){text(sw-305,23,"CPU",0xFF8B98AB);text(sw-265,23,"RAM",0xFF8B98AB);text(sw-215,23,"NET",0xFF8B98AB);text(sw-155,23,"17:42",0xFFFFFFFF);}
+ if(sw>520){text(sw-305,23,"CPU",0xFF8B98AB);text(sw-265,23,"RAM",0xFF8B98AB);text(sw-215,23,"NET",0xFF8B98AB);text(sw-155,23,"LIVE",0xFF6EE7B7);}
  folder(34,92);text(30,120,"Files",0xFFE8EDF5);terminal(34,156);text(25,184,"Terminal",0xFFE8EDF5);settings(34,220);text(22,248,"Settings",0xFFE8EDF5);
  uint32_t w=sw>900?650:(sw>700?570:sw-120),h=330,x=(sw-w)/2,y=100;
- window(x,y,w,h,"Welcome to MyOS",0xFF3B82F6);text(x+34,y+70,"A native x86-64 desktop.",0xFFFFFFFF);text(x+34,y+94,"Fast, simple and built from the kernel up.",0xFFB7C3D0);
+ window(x,y,w,h,"Welcome to MyOS",0xFF3B82F6);text(x+34,y+70,"A native x86-64 desktop.",0xFFFFFFFF);text(x+34,y+94,"Mouse and keyboard input are now active.",0xFFB7C3D0);
  line(x+34,y+130,w-68,0xFF344155);text(x+34,y+154,"Quick access",0xFF8B98AB);
  rect(x+34,y+180,150,72,0xFF202A3A);folder(x+52,y+198);text(x+52,y+224,"Files",0xFFFFFFFF);
  rect(x+204,y+180,150,72,0xFF202A3A);terminal(x+222,y+198);text(x+222,y+224,"Terminal",0xFFFFFFFF);
  rect(x+374,y+180,150,72,0xFF202A3A);settings(x+392,y+198);text(x+392,y+224,"Settings",0xFFFFFFFF);
- text(x+34,y+286,"Keyboard: S = launcher   Esc = close",0xFF6EE7B7);
+ text(x+34,y+286,"S = launcher   Esc = close   Left click = select",0xFF6EE7B7);
  uint32_t ty=sh-52;rect(0,ty,sw,52,0xFF171D29);line(0,ty,sw,0xFF303B4E);
  rect(14,ty+10,34,32,0xFF2563EB);grid(22,ty+16,0xFFFFFFFF);rect(62,ty+10,44,32,0xFF202A3A);folder(72,ty+15);
  rect(112,ty+10,44,32,0xFF202A3A);terminal(121,ty+15);rect(162,ty+10,44,32,0xFF202A3A);settings(171,ty+15);
@@ -84,7 +84,10 @@ void kernel_main(uint64_t magic,struct multiboot_info*mb){
  fb=(uint32_t*)(uintptr_t)mb->framebuffer_addr;
  pitch=mb->framebuffer_pitch;sw=mb->framebuffer_width;sh=mb->framebuffer_height;
  if(sw<320||sh<200){vga_msg("MyOS: invalid framebuffer size",0x4E);halt();}
+ mouse_x=(int)sw/2;mouse_y=(int)sh/2;
  desktop();
- serial_puts("MyOS: native desktop rendered\r\n");
- for(;;){input();__asm__ volatile("hlt");}
+ mouse_init();
+ cursor_draw(mouse_x,mouse_y);
+ serial_puts("MyOS: desktop + PS2 mouse ready\r\n");
+ for(;;){input();__asm__ volatile("pause");}
 }
