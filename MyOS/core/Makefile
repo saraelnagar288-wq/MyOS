@@ -12,11 +12,14 @@ all: MyOS.iso
 boot.o: boot.s
 	$(NASM) -f elf64 $< -o $@
 
-kernel.o: kernel.c font8x8.inc
+kernel.o: kernel.c font8x8.inc memory.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-myos.bin: boot.o kernel.o linker.ld
-	$(LD) -m elf_x86_64 -nostdlib -T linker.ld -o $@ boot.o kernel.o
+memory.o: memory.c memory.h
+	$(CC) $(CFLAGS) -c $< -o $@
+
+myos.bin: boot.o kernel.o memory.o linker.ld
+	$(LD) -m elf_x86_64 -nostdlib -T linker.ld -o $@ boot.o kernel.o memory.o
 
 MyOS.iso: myos.bin grub.cfg
 	mkdir -p iso/boot/grub
