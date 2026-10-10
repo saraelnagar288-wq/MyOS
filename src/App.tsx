@@ -87,7 +87,7 @@ export default function App() {
     else if (cmd === 'uname') output = ['MyOS 0.4.2 x86_64'];
     else if (cmd === 'date') output = [new Date().toString()];
     else if (cmd === 'clear') { setTerminalLines([]); setCommand(''); return; }
-    else if (cmd === 'neofetch') output = ['       .----.       OS: MyOS 0.4.2', '      / .--. \\      Kernel: MyOS kernel', '     | |    | |     Architecture: x86_64', '      \\ '--' /      Desktop: MyOS DE', '       '----'       Status: running'];
+    else if (cmd === 'neofetch') output = ['  MYOS  |  OS: MyOS 0.4.2', '        |  Kernel: MyOS kernel', '  x64   |  Architecture: x86_64', '        |  Desktop: MyOS DE', '        |  Status: running'];
     else output = [cmd.split(' ')[0] + ': command not found'];
     setTerminalLines(prev => [...prev, 'user@myos:~$ ' + cmd, ...output]);
     setCommand('');
