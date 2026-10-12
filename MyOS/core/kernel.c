@@ -144,7 +144,7 @@ static void draw_setup_screen(void){
     uint32_t x=sw>600?sw/2-240:16,w=sw>600?480:sw-32;
     rect(x,112,w,130,0xFF121B2A);frame(x,112,w,130,0xFF334155);
     text(x+18,132,"Welcome to MyOS",0xFFFFFFFF);
-    text(x+18,156,"Native framebuffer interface",0xFFCBD5E1);
+    text(x+18,156,"Native x86-64 / Framebuffer UI",0xFFCBD5E1);
     text(x+18,178,"CPU detection: available",0xFF6EE7B7);
     text(x+18,198,"Disk installation: not enabled yet",0xFFFBBF24);
     text(x+18,218,"Choose an option below",0xFF94A3B8);
