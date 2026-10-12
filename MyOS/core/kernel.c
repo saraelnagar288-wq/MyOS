@@ -149,7 +149,7 @@ static void draw_setup_screen(void){
     text(x+18,198,"Disk installation: not enabled yet",0xFFFBBF24);
     text(x+18,218,"Choose how you want to begin",0xFF94A3B8);
     uint32_t y=sh>420?sh/2-28:sh/2-20;
-    ui_button(y,"I  Installer screen (safe preview)",0xFF60A5FA);
+    ui_button(y,"I  Install MyOS / Preview",0xFF60A5FA);
     ui_button(y+52,"H  Detect hardware",0xFF34D399);
     ui_button(y+104,"L  Sign-in screen preview",0xFFA78BFA);
     ui_button(y+156,"ENTER  Continue as Guest",0xFF34D399);
