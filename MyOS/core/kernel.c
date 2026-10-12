@@ -58,7 +58,7 @@ static void cursor_restore(int x,int y){for(int yy=0;yy<20;yy++)for(int xx=0;xx<
 static void cursor_draw(int x,int y){cursor_save(x,y);for(int i=0;i<18;i++){int px=x+i,py=y+i;if(px>=0&&py>=0&&(uint32_t)px<sw&&(uint32_t)py<sh)fb[py*(pitch/4)+px]=0xFFFFFFFF;}for(int i=0;i<12;i++){int px=x+5+i,py=y+14;if(px>=0&&py>=0&&(uint32_t)px<sw&&(uint32_t)py<sh)fb[py*(pitch/4)+px]=0xFFFFFFFF;}cursor_visible=1;}
 static void cursor_hide(void){if(cursor_visible){cursor_restore(mouse_x,mouse_y);cursor_visible=0;}}
 static void cursor_move(int nx,int ny){if(nx<0)nx=0;if(ny<0)ny=0;if(nx>(int)sw-20)nx=(int)sw-20;if(ny>(int)sh-20)ny=(int)sh-20;if(nx==mouse_x&&ny==mouse_y)return;cursor_hide();mouse_x=nx;mouse_y=ny;cursor_draw(mouse_x,mouse_y);}
-static void handle_click(int x,int y);
+static void handle_click(uint32_t x,uint32_t y);
 static void desktop(void);
 static void mouse_poll(void){while(inb(0x64)&1){uint8_t st=inb(0x64),d=inb(0x60);if(!(st&0x20))continue;if(mouse_cycle==0){if(!(d&8))continue;mouse_packet[0]=d;mouse_cycle=1;}else if(mouse_cycle==1){mouse_packet[1]=d;mouse_cycle=2;}else{mouse_packet[2]=d;mouse_cycle=0;int dx=(int8_t)mouse_packet[1],dy=(int8_t)mouse_packet[2];cursor_move(mouse_x+dx*2,mouse_y-dy*2);uint8_t previous=mouse_buttons;mouse_buttons=mouse_packet[0]&7;if((mouse_buttons&1)&&!(previous&1)){cursor_hide();handle_click(mouse_x,mouse_y);desktop();cursor_draw(mouse_x,mouse_y);}}}}
 static uint8_t show_files=1,show_editor=1,show_settings=1,show_terminal=1,show_calculator=1;
@@ -80,7 +80,7 @@ static uint32_t pci_devices, pci_vga_count, pci_network_count, pci_storage_count
 static void detect_cpu(void) {
     uint32_t a=0,b=0,c=0,d=0;
     __asm__ volatile("cpuid" : "=a"(a), "=b"(b), "=c"(c), "=d"(d) : "a"(0));
-    for (uint32_t i=0;i<4;i++) {
+    for (uint32_t i=0;i<3;i++) {
         uint32_t v=(i==0)?b:(i==1)?d:c;
         for (uint32_t j=0;j<4;j++) cpu_vendor[i*4+j]=(char)(v>>(j*8));
     }
@@ -218,24 +218,24 @@ static void draw_system_screen(void){
 
 static void draw_taskbar(void){uint32_t ty=sh-42;rect(0,ty,sw,42,0xFF080E1A);line(0,ty,sw,0xFF29364A);rect(10,ty+7,32,28,0xFF34D399);grid(17,ty+14,0xFF071426);text(51,ty+17,"MyOS",0xFFFFFFFF);uint32_t x=108;const char*labels[]={"Files","Editor","Settings","Terminal","Calc"};uint8_t shown[]={show_files,show_editor,show_settings,show_terminal,show_calculator};for(uint32_t i=0;i<5;i++){uint32_t tw=sw<600?54:84;if(x+tw<sw-105){rect(x,ty+7,tw,28,shown[i]?0xFF1E293B:0xFF111827);frame(x,ty+7,tw,28,shown[i]?0xFF3B536E:0xFF263449);text(x+7,ty+17,labels[i],shown[i]?0xFFDAE6F6:0xFF718096);x+=tw+5;}}text(sw>110?sw-100:4,ty+17,"SYSTEM OK",0xFF6EE7B7);}
 static void desktop(void){if(current_screen!=SCREEN_DESKTOP){draw_system_screen();return;}margin=sw/64;if(margin<8)margin=8;gap=margin;top_y=66;top_h=(sh>500)?(sh-160)/2:((sh-100)/2);if(top_h<85)top_h=85;bottom_y=top_y+top_h+gap;bottom_h=(sh>bottom_y+60)?sh-bottom_y-52:80;files_w=(sw-4*margin-2*gap)/3;editor_w=files_w;settings_w=files_w;files_x=margin;editor_x=files_x+files_w+gap;settings_x=editor_x+editor_w+gap;terminal_x=margin;terminal_w=(sw*42)/100;if(terminal_w<120)terminal_w=120;calc_x=terminal_x+terminal_w+gap;calc_w=(sw>calc_x+margin)?sw-calc_x-margin:100;if(calc_w>sw/4)calc_w=sw/4;rect(0,0,sw,sh,0xFF0B1020);rect(0,0,sw,54,0xFF111827);line(0,53,sw,0xFF29364A);rect(16,12,29,29,0xFF34D399);grid(23,19,0xFF071426);text(55,14,"MyOS",0xFFFFFFFF);text(55,30,"Native Desktop",0xFF94A3B8);if(sw>500)text(sw-150,23,"FRAMEBUFFER  |  READY",0xFF6EE7B7);if(show_files)draw_files(files_x,top_y,files_w,top_h);if(show_editor)draw_editor(editor_x,top_y,editor_w,top_h);if(show_settings)draw_settings(settings_x,top_y,settings_w,top_h);if(show_terminal)draw_terminal(terminal_x,bottom_y,terminal_w,bottom_h);if(show_calculator)draw_calculator(calc_x,bottom_y,calc_w,bottom_h);draw_taskbar();if(launcher_open)draw_launcher();}
-static void handle_click(int x,int y){
+static void handle_click(uint32_t x,uint32_t y){
  if(current_screen!=SCREEN_DESKTOP){
   uint32_t y0=sh>420?sh/2-28:sh/2-20;
   uint32_t bx=sw>600?sw/2-170:24,bw=sw>600?340:sw-48;
-  if(current_screen==SCREEN_SETUP&&x>=(int)bx&&x<(int)(bx+bw)){
-   if(y>=(int)y0&&y<(int)(y0+42))current_screen=SCREEN_INSTALL_PREVIEW;
-   else if(y>=(int)(y0+52)&&y<(int)(y0+94))current_screen=SCREEN_HARDWARE;
-   else if(y>=(int)(y0+104)&&y<(int)(y0+146))current_screen=SCREEN_SIGNIN;
-   else if(y>=(int)(y0+156)&&y<(int)(y0+198))current_screen=SCREEN_DESKTOP;
+  if(current_screen==SCREEN_SETUP&&x>=bx&&x<bx+bw){
+   if(y>=y0&&y<y0+42)current_screen=SCREEN_INSTALL_PREVIEW;
+   else if(y>=y0+52&&y<y0+94)current_screen=SCREEN_HARDWARE;
+   else if(y>=y0+104&&y<y0+146)current_screen=SCREEN_SIGNIN;
+   else if(y>=y0+156&&y<y0+198)current_screen=SCREEN_DESKTOP;
   }else if(current_screen==SCREEN_SIGNIN){
-   if(y>=(int)(sh/2+59)&&y<(int)(sh/2+105))current_screen=SCREEN_DESKTOP;
-   else if(y>=(int)(sh-70))current_screen=SCREEN_SETUP;
+   if(y>=sh/2+59&&y<sh/2+105)current_screen=SCREEN_DESKTOP;
+   else if(y>=sh-70)current_screen=SCREEN_SETUP;
   }else if(current_screen==SCREEN_INSTALL_PREVIEW||current_screen==SCREEN_HARDWARE){
-   if(y>=(int)(sh-105))current_screen=SCREEN_SETUP;
+   if(y>=sh-105)current_screen=SCREEN_SETUP;
   }
   return;
  }
- uint32_t ty=sh-42;if(y>= (int)ty){if(x<48){launcher_open=!launcher_open;return;}uint32_t tx=108;uint32_t tw=sw<600?54:84;for(uint32_t i=0;i<5;i++){if(tx+tw<sw-105&&x>=(int)tx&&x<(int)(tx+tw)){if(i==0)show_files=!show_files;else if(i==1)show_editor=!show_editor;else if(i==2)show_settings=!show_settings;else if(i==3)show_terminal=!show_terminal;else show_calculator=!show_calculator;launcher_open=0;return;}tx+=tw+5;}return;}if(launcher_open){uint32_t w=sw>850?560:sw-80,h=sh>650?430:sh-150,lx=(sw-w)/2,ly=(sh-h)/2;if(y>=ly+112&&y<=ly+200){if(x<lx+185)show_files=1;else if(x<lx+350)show_terminal=1;else show_settings=1;}launcher_open=0;return;}if(y>=top_y&&y<top_y+top_h){if(x>=files_x&&x<files_x+files_w){if(x>files_x+files_w-34&&y<top_y+38)show_files=0;}else if(x>=editor_x&&x<editor_x+editor_w){if(x>editor_x+editor_w-34&&y<top_y+38)show_editor=0;}else if(x>=settings_x&&x<settings_x+settings_w){if(x>settings_x+settings_w-34&&y<top_y+38)show_settings=0;}}else if(y>=bottom_y&&y<bottom_y+bottom_h){if(x>=terminal_x&&x<terminal_x+terminal_w&&x>terminal_x+terminal_w-34&&y<bottom_y+38)show_terminal=0;else if(x>=calc_x&&x<calc_x+calc_w&&x>calc_x+calc_w-34&&y<bottom_y+38)show_calculator=0;}}
+ uint32_t ty=sh-42;if(y>=ty){if(x<48){launcher_open=!launcher_open;return;}uint32_t tx=108;uint32_t tw=sw<600?54:84;for(uint32_t i=0;i<5;i++){if(tx+tw<sw-105&&x>=(int)tx&&x<(int)(tx+tw)){if(i==0)show_files=!show_files;else if(i==1)show_editor=!show_editor;else if(i==2)show_settings=!show_settings;else if(i==3)show_terminal=!show_terminal;else show_calculator=!show_calculator;launcher_open=0;return;}tx+=tw+5;}return;}if(launcher_open){uint32_t w=sw>850?560:sw-80,h=sh>650?430:sh-150,lx=(sw-w)/2,ly=(sh-h)/2;if(y>=ly+112&&y<=ly+200){if(x<lx+185)show_files=1;else if(x<lx+350)show_terminal=1;else show_settings=1;}launcher_open=0;return;}if(y>=top_y&&y<top_y+top_h){if(x>=files_x&&x<files_x+files_w){if(x>files_x+files_w-34&&y<top_y+38)show_files=0;}else if(x>=editor_x&&x<editor_x+editor_w){if(x>editor_x+editor_w-34&&y<top_y+38)show_editor=0;}else if(x>=settings_x&&x<settings_x+settings_w){if(x>settings_x+settings_w-34&&y<top_y+38)show_settings=0;}}else if(y>=bottom_y&&y<bottom_y+bottom_h){if(x>=terminal_x&&x<terminal_x+terminal_w&&x>terminal_x+terminal_w-34&&y<bottom_y+38)show_terminal=0;else if(x>=calc_x&&x<calc_x+calc_w&&x>calc_x+calc_w-34&&y<bottom_y+38)show_calculator=0;}}
 static void input(void){
  if(!(inb(0x64)&1))return;
  uint8_t s=inb(0x60);if(s&0x80)return;
