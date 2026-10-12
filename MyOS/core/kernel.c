@@ -133,7 +133,7 @@ static void ui_button(uint32_t y,const char *label,uint32_t accent){
     text(x+16,y+16,label,0xFFF1F5F9);
 }
 static void ui_header(const char *title,const char *subtitle){
-    rect(0,0,sw,sh,0xFF0B1020);
+    rect(0,0,sw,sh,0xFF0B1020);rect(0,0,sw,3,0xFF34D399);
     rect(0,0,sw,58,0xFF111827);rect(0,56,sw,2,0xFF34D399);
     text(24,20,"MyOS",0xFF6EE7B7);
     text(sw>300?110:24,20,title,0xFFFFFFFF);
