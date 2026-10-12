@@ -59,6 +59,7 @@ static void cursor_draw(int x,int y){cursor_save(x,y);for(int i=0;i<18;i++){int 
 static void cursor_hide(void){if(cursor_visible){cursor_restore(mouse_x,mouse_y);cursor_visible=0;}}
 static void cursor_move(int nx,int ny){if(nx<0)nx=0;if(ny<0)ny=0;if(nx>(int)sw-20)nx=(int)sw-20;if(ny>(int)sh-20)ny=(int)sh-20;if(nx==mouse_x&&ny==mouse_y)return;cursor_hide();mouse_x=nx;mouse_y=ny;cursor_draw(mouse_x,mouse_y);}
 static void handle_click(int x,int y);
+static void desktop(void);
 static void mouse_poll(void){while(inb(0x64)&1){uint8_t st=inb(0x64),d=inb(0x60);if(!(st&0x20))continue;if(mouse_cycle==0){if(!(d&8))continue;mouse_packet[0]=d;mouse_cycle=1;}else if(mouse_cycle==1){mouse_packet[1]=d;mouse_cycle=2;}else{mouse_packet[2]=d;mouse_cycle=0;int dx=(int8_t)mouse_packet[1],dy=(int8_t)mouse_packet[2];cursor_move(mouse_x+dx*2,mouse_y-dy*2);uint8_t previous=mouse_buttons;mouse_buttons=mouse_packet[0]&7;if((mouse_buttons&1)&&!(previous&1)){cursor_hide();handle_click(mouse_x,mouse_y);desktop();cursor_draw(mouse_x,mouse_y);}}}}
 static uint8_t show_files=1,show_editor=1,show_settings=1,show_terminal=1,show_calculator=1;
 static uint32_t top_y,top_h,bottom_y,bottom_h,margin,gap,files_x,editor_x,settings_x,terminal_x,calc_x,files_w,editor_w,settings_w,terminal_w,calc_w;
@@ -77,8 +78,6 @@ static uint32_t reported_ram_mb;
 static uint32_t cpu_max_leaf;
 static uint8_t pci_scanned;
 static uint32_t pci_devices, pci_vga_count, pci_network_count, pci_storage_count;
-static void desktop(void);
-
 static void detect_cpu(void) {
     uint32_t a=0,b=0,c=0,d=0;
     __asm__ volatile("cpuid" : "=a"(a), "=b"(b), "=c"(c), "=d"(d) : "a"(0));
@@ -154,7 +153,7 @@ static void draw_setup_screen(void){
     uint32_t y=sh>420?sh/2-28:sh/2-20;
     ui_button(y,"I  Installer screen (safe preview)",0xFF60A5FA);
     ui_button(y+52,"H  Detect hardware",0xFF34D399);
-    ui_button(y+104,"L  Sign-in screen preview",0FFA78BFA);
+    ui_button(y+104,"L  Sign-in screen preview",0xFFA78BFA);
     ui_button(y+156,"ENTER  Continue as Guest",0xFF34D399);
     text(24,sh>30?sh-24:0,"Keyboard: I / H / L / Enter     Mouse: click a row",0xFF64748B);
 }
@@ -175,7 +174,7 @@ static void draw_install_screen(void){
 }
 static void draw_signin_screen(void){
     ui_header("Sign in","Choose a local demo session");
-    uint32_t w=sw>600?420:sw-32,x=(sw-w)/2,y=sh/2-115;
+    uint32_t w=sw>600?420:sw-32,x=(sw-w)/2,y=sh>400?sh/2-115:64;
     rect(x,y,w,236,0xFF121B2A);frame(x,y,w,236,0xFF334155);
     rect(x+w/2-24,y+22,48,48,0xFF1F3A36);frame(x+w/2-24,y+22,48,48,0xFF34D399);
     text(x+w/2-16,y+42,"G",0xFF6EE7B7);
