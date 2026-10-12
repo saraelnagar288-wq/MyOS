@@ -75,13 +75,11 @@ static enum myos_screen current_screen = SCREEN_SETUP;
 static char cpu_vendor[13] = "Unknown CPU";
 static char cpu_brand[49] = "CPU brand unavailable";
 static uint32_t reported_ram_mb;
-static uint32_t cpu_max_leaf;
 static uint8_t pci_scanned;
 static uint32_t pci_devices, pci_vga_count, pci_network_count, pci_storage_count;
 static void detect_cpu(void) {
     uint32_t a=0,b=0,c=0,d=0;
     __asm__ volatile("cpuid" : "=a"(a), "=b"(b), "=c"(c), "=d"(d) : "a"(0));
-    cpu_max_leaf=a;
     for (uint32_t i=0;i<4;i++) {
         uint32_t v=(i==0)?b:(i==1)?d:c;
         for (uint32_t j=0;j<4;j++) cpu_vendor[i*4+j]=(char)(v>>(j*8));
