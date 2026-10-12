@@ -147,7 +147,7 @@ static void draw_setup_screen(void){
     text(x+18,156,"Native x86-64 / Framebuffer UI",0xFFCBD5E1);
     text(x+18,178,"CPU detection: available",0xFF6EE7B7);
     text(x+18,198,"Disk installation: not enabled yet",0xFFFBBF24);
-    text(x+18,218,"Choose an option below",0xFF94A3B8);
+    text(x+18,218,"Choose how you want to begin",0xFF94A3B8);
     uint32_t y=sh>420?sh/2-28:sh/2-20;
     ui_button(y,"I  Installer screen (safe preview)",0xFF60A5FA);
     ui_button(y+52,"H  Detect hardware",0xFF34D399);
