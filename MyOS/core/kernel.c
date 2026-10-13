@@ -120,7 +120,10 @@ static void handle_mouse_click(int x,int y){
  cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);
 }
 static void input(void){
- if(!(inb(0x64)&1))return;if(inb(0x64)&0x20)return;uint8_t s=inb(0x60);if(s&0x80)return;
+ if(!(inb(0x64)&1)) return;
+ if(inb(0x64)&0x20) return;
+ uint8_t s=inb(0x60);
+ if(s&0x80) return;
  if(boot_screen){
   if(boot_screen==1){if(s==0x1C||s==0x14)boot_screen=3;else if(s==0x17)boot_screen=2;}
   else if(boot_screen==2){if(s==0x01)boot_screen=1;else if(s==0x14)boot_screen=3;}
