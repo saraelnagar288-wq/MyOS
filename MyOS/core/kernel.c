@@ -11,7 +11,7 @@ struct multiboot_info {
  uint8_t framebuffer_bpp,framebuffer_type,color_info[6];
 } __attribute__((packed));
 
-static uint32_t *fb; static uint32_t pitch,sw,sh; static uint8_t launcher_open;
+static uint32_t *fb; static uint32_t pitch,sw,sh; static uint8_t launcher_open,settings_open,update_checked,boot_screen=1;
 
 static void outb(uint16_t p,uint8_t v){__asm__ volatile("outb %0,%1"::"a"(v),"Nd"(p));}
 static uint8_t inb(uint16_t p){uint8_t v;__asm__ volatile("inb %1,%0":"=a"(v):"Nd"(p));return v;}
@@ -36,7 +36,10 @@ static void settings(uint32_t x,uint32_t y){rect(x+9,y,9,24,0xFFB8C2D1);rect(x,y
 static void window(uint32_t x,uint32_t y,uint32_t w,uint32_t h,const char*t,uint32_t a){rect(x+7,y+7,w,h,0x55000000);rect(x,y,w,h,0xFF182130);frame(x,y,w,h,0xFF354155);rect(x,y,w,38,0xFF202A3A);rect(x,y,4,38,a);text(x+18,y+15,t,0xFFFFFFFF);rect(x+w-72,y+14,8,8,0xFF8794A8);rect(x+w-50,y+14,8,8,0xFF8794A8);rect(x+w-28,y+14,8,8,0xFFF87171);}
 static void draw_launcher(void){uint32_t w=sw>850?560:sw-80,h=sh>650?430:sh-150,x=(sw-w)/2,y=(sh-h)/2;rect(x+8,y+8,w,h,0x55000000);rect(x,y,w,h,0xFF141B28);frame(x,y,w,h,0xFF40506A);rect(x,y,w,62,0xFF1E2736);text(x+24,y+22,"Search MyOS",0xFF8B98AB);line(x+24,y+48,w-48,0xFF344155);text(x+24,y+86,"Applications",0xFF8B98AB);rect(x+24,y+112,150,88,0xFF202A3A);folder(x+48,y+132);text(x+48,y+166,"Files",0xFFFFFFFF);rect(x+192,y+112,150,88,0xFF202A3A);terminal(x+214,y+132);text(x+214,y+166,"Terminal",0xFFFFFFFF);rect(x+360,y+112,150,88,0xFF202A3A);settings(x+382,y+132);text(x+382,y+166,"Settings",0xFFFFFFFF);text(x+24,y+238,"System",0xFF8B98AB);text(x+24,y+268,"Display",0xFFD5DCE7);text(x+24,y+290,"Network",0xFFD5DCE7);text(x+24,y+312,"Appearance",0xFFD5DCE7);text(x+24,y+356,"Press ESC to return to desktop",0xFF6EE7B7);}
 static int mouse_x,mouse_y,mouse_cycle,mouse_buttons,cursor_visible;
-static uint8_t mouse_packet[3]; static uint32_t cursor_saved[20*20];
+static uint8_t mouse_packet[3];
+#define CURSOR_W 18
+#define CURSOR_H 24
+static uint32_t cursor_saved[CURSOR_W*CURSOR_H];
 static int ps2_wait_write(void){for(uint32_t i=0;i<100000;i++)if(!(inb(0x64)&2))return 1;return 0;}
 static int ps2_wait_read(void){for(uint32_t i=0;i<100000;i++)if(inb(0x64)&1)return 1;return 0;}
 static void mouse_write(uint8_t v){if(!ps2_wait_write())return;outb(0x64,0xD4);if(!ps2_wait_write())return;outb(0x60,v);}
@@ -53,12 +56,82 @@ static void mouse_init(void){
  mouse_write(0xF6);(void)mouse_read_timeout();
  mouse_write(0xF4);(void)mouse_read_timeout();
 }
-static void cursor_save(int x,int y){for(int yy=0;yy<20;yy++)for(int xx=0;xx<20;xx++){int px=x+xx,py=y+yy;cursor_saved[yy*20+xx]=(px>=0&&py>=0&&(uint32_t)px<sw&&(uint32_t)py<sh)?fb[py*(pitch/4)+px]:0;}}
-static void cursor_restore(int x,int y){for(int yy=0;yy<20;yy++)for(int xx=0;xx<20;xx++){int px=x+xx,py=y+yy;if(px>=0&&py>=0&&(uint32_t)px<sw&&(uint32_t)py<sh)fb[py*(pitch/4)+px]=cursor_saved[yy*20+xx];}}
-static void cursor_draw(int x,int y){cursor_save(x,y);for(int i=0;i<18;i++){int px=x+i,py=y+i;if(px>=0&&py>=0&&(uint32_t)px<sw&&(uint32_t)py<sh)fb[py*(pitch/4)+px]=0xFFFFFFFF;}for(int i=0;i<12;i++){int px=x+5+i,py=y+14;if(px>=0&&py>=0&&(uint32_t)px<sw&&(uint32_t)py<sh)fb[py*(pitch/4)+px]=0xFFFFFFFF;}cursor_visible=1;}
+static void cursor_save(int x,int y){for(int yy=0;yy<CURSOR_H;yy++)for(int xx=0;xx<CURSOR_W;xx++){int px=x+xx,py=y+yy;cursor_saved[yy*CURSOR_W+xx]=(px>=0&&py>=0&&(uint32_t)px<sw&&(uint32_t)py<sh)?fb[py*(pitch/4)+px]:0;}}
+static void cursor_restore(int x,int y){for(int yy=0;yy<CURSOR_H;yy++)for(int xx=0;xx<CURSOR_W;xx++){int px=x+xx,py=y+yy;if(px>=0&&py>=0&&(uint32_t)px<sw&&(uint32_t)py<sh)fb[py*(pitch/4)+px]=cursor_saved[yy*CURSOR_W+xx];}}
+/* Compact Windows-style arrow. Each set bit is one cursor pixel, MSB first. */
+static void cursor_draw(int x,int y){
+ static const uint16_t shape[CURSOR_H]={0x8000,0xC000,0xE000,0xF000,0xF800,0xFC00,0xFE00,0xFF00,0xFF80,0xFFC0,0xFFE0,0xFFF0,0xFFF8,0xFFFC,0xFFF0,0xFBE0,0xF1C0,0xE080,0xC000,0xC000,0xE000,0x7000,0x3000,0x0000};
+ cursor_save(x,y);
+ for(int yy=0;yy<CURSOR_H;yy++){
+  uint16_t row=shape[yy],above=yy?shape[yy-1]:0,below=yy+1<CURSOR_H?shape[yy+1]:0;
+  uint16_t edge=(uint16_t)(row|(row>>1)|(row<<1)|above|(above>>1)|(above<<1)|below|(below>>1)|(below<<1));
+  for(int xx=0;xx<16;xx++){uint16_t bit=(uint16_t)(0x8000u>>xx);int px=x+xx,py=y+yy;if(px<0||py<0||(uint32_t)px>=sw||(uint32_t)py>=sh)continue;if(edge&bit)fb[py*(pitch/4)+px]=0xFF101010;if(row&bit)fb[py*(pitch/4)+px]=0xFFFFFFFF;}
+ }
+ cursor_visible=1;
+}
 static void cursor_hide(void){if(cursor_visible){cursor_restore(mouse_x,mouse_y);cursor_visible=0;}}
-static void cursor_move(int nx,int ny){if(nx<0)nx=0;if(ny<0)ny=0;if(nx>(int)sw-20)nx=(int)sw-20;if(ny>(int)sh-20)ny=(int)sh-20;if(nx==mouse_x&&ny==mouse_y)return;cursor_hide();mouse_x=nx;mouse_y=ny;cursor_draw(mouse_x,mouse_y);}
-static void mouse_poll(void){while(inb(0x64)&1){uint8_t st=inb(0x64),d=inb(0x60);if(!(st&0x20))continue;if(mouse_cycle==0){if(!(d&8))continue;mouse_packet[0]=d;mouse_cycle=1;}else if(mouse_cycle==1){mouse_packet[1]=d;mouse_cycle=2;}else{mouse_packet[2]=d;mouse_cycle=0;int dx=(int8_t)mouse_packet[1],dy=(int8_t)mouse_packet[2];cursor_move(mouse_x+dx*2,mouse_y-dy*2);mouse_buttons=mouse_packet[0]&7;}}}
-static void desktop(void){rect(0,0,sw,sh,0xFF0B1020);rect(0,60,sw,sh-112,0xFF101827);rect(sw/2,60,sw/2,sh-112,0xFF111D31);rect(0,0,sw,60,0xFF171D29);line(0,59,sw,0xFF2D394C);rect(18,16,28,28,0xFF3B82F6);grid(23,20,0xFFFFFFFF);text(58,18,"MyOS",0xFFFFFFFF);text(58,34,"Native Desktop",0xFF8B98AB);if(sw>520){text(sw-305,23,"CPU",0xFF8B98AB);text(sw-265,23,"RAM",0xFF8B98AB);text(sw-215,23,"NET",0xFF8B98AB);text(sw-155,23,"LIVE",0xFF6EE7B7);}folder(34,92);text(30,120,"Files",0xFFE8EDF5);terminal(34,156);text(25,184,"Terminal",0xFFE8EDF5);settings(34,220);text(22,248,"Settings",0xFFE8EDF5);uint32_t w=sw>900?650:(sw>700?570:sw-120),h=330,x=(sw-w)/2,y=100;window(x,y,w,h,"Welcome to MyOS",0xFF3B82F6);text(x+34,y+70,"A native x86-64 desktop.",0xFFFFFFFF);text(x+34,y+94,"Mouse and keyboard input are now active.",0xFFB7C3D0);line(x+34,y+130,w-68,0xFF344155);text(x+34,y+154,"Quick access",0xFF8B98AB);rect(x+34,y+180,150,72,0xFF202A3A);folder(x+52,y+198);text(x+52,y+224,"Files",0xFFFFFFFF);rect(x+204,y+180,150,72,0xFF202A3A);terminal(x+222,y+198);text(x+222,y+224,"Terminal",0xFFFFFFFF);rect(x+374,y+180,150,72,0xFF202A3A);settings(x+392,y+198);text(x+392,y+224,"Settings",0xFFFFFFFF);text(x+34,y+286,"S = launcher   Esc = close   Left click = select",0xFF6EE7B7);uint32_t ty=sh-52;rect(0,ty,sw,52,0xFF171D29);line(0,ty,sw,0xFF303B4E);rect(14,ty+10,34,32,0xFF2563EB);grid(22,ty+16,0xFFFFFFFF);rect(62,ty+10,44,32,0xFF202A3A);folder(72,ty+15);rect(112,ty+10,44,32,0xFF202A3A);terminal(121,ty+15);rect(162,ty+10,44,32,0xFF202A3A);settings(171,ty+15);if(launcher_open)draw_launcher();}
-static void input(void){if(!(inb(0x64)&1))return;uint8_t s=inb(0x60);if(s&0x80)return;if(s==0x1F){launcher_open=1;desktop();}if(s==0x01){launcher_open=0;desktop();}}
-void kernel_main(uint64_t magic,struct multiboot_info*mb){serial_init();serial_puts("MyOS: kernel start\r\n");if((uint32_t)magic!=MULTIBOOT_MAGIC||!mb){vga_msg("MyOS: invalid Multiboot data",0x4F);halt();}if(!(mb->flags&FB_FLAG)||!mb->framebuffer_addr||mb->framebuffer_bpp!=32||!mb->framebuffer_pitch){vga_msg("MyOS: framebuffer unavailable",0x4E);halt();}fb=(uint32_t*)(uintptr_t)mb->framebuffer_addr;pitch=mb->framebuffer_pitch;sw=mb->framebuffer_width;sh=mb->framebuffer_height;if(sw<320||sh<200){vga_msg("MyOS: invalid framebuffer size",0x4E);halt();}memory_init(mb->mem_upper);{struct myos_memory_stats ms;memory_stats(&ms);serial_puts("MyOS: memory manager online\r\n");if(ms.heap_end>ms.heap_start)serial_puts("MyOS: kernel heap available\r\n");else serial_puts("MyOS: kernel heap unavailable\r\n");}mouse_x=(int)sw/2;mouse_y=(int)sh/2;desktop();mouse_init();cursor_draw(mouse_x,mouse_y);serial_puts("MyOS: desktop + PS2 mouse ready\r\n");for(;;){input();mouse_poll();__asm__ volatile("pause");}}
+static void cursor_move(int nx,int ny){if(nx<0)nx=0;if(ny<0)ny=0;if(nx>(int)sw-CURSOR_W)nx=(int)sw-CURSOR_W;if(ny>(int)sh-CURSOR_H)ny=(int)sh-CURSOR_H;if(nx==mouse_x&&ny==mouse_y)return;cursor_hide();mouse_x=nx;mouse_y=ny;cursor_draw(mouse_x,mouse_y);}
+static void handle_mouse_click(int x,int y);
+static void mouse_poll(void){for(;;){uint8_t st=inb(0x64);if(!(st&1))break;/* Never consume keyboard bytes as mouse data. */if(!(st&0x20))break;uint8_t d=inb(0x60);if(mouse_cycle==0){if(!(d&8))continue;mouse_packet[0]=d;mouse_cycle=1;}else if(mouse_cycle==1){mouse_packet[1]=d;mouse_cycle=2;}else{mouse_packet[2]=d;mouse_cycle=0;int dx=(int8_t)mouse_packet[1],dy=(int8_t)mouse_packet[2];cursor_move(mouse_x+dx*2,mouse_y-dy*2);int old_buttons=mouse_buttons;mouse_buttons=mouse_packet[0]&7;if((mouse_buttons&1)&&!(old_buttons&1))handle_mouse_click(mouse_x,mouse_y);}}}
+static void draw_settings(void){uint32_t w=sw>700?560:sw-40,h=300,x=(sw-w)/2,y=100;window(x,y,w,h,"My Settings - Updates",0xFF805AD5);text(x+24,y+58,"System Updates",0xFFFFFFFF);text(x+24,y+82,"Installed version: development build",0xFFB7C3D0);text(x+24,y+104,"Release channel: stable (not connected)",0xFFB7C3D0);rect(x+24,y+140,190,38,0xFF2563EB);frame(x+24,y+140,190,38,0xFF60A5FA);text(x+38,y+155,"Check for Updates",0xFFFFFFFF);if(update_checked){text(x+24,y+198,"Online check is not available yet.",0xFFFBBF24);text(x+24,y+220,"Network, TLS and signed-manifest support",0xFFB7C3D0);text(x+24,y+238,"must be implemented before downloads.",0xFFB7C3D0);}else{text(x+24,y+198,"No update server is connected yet.",0xFFB7C3D0);text(x+24,y+220,"Updates will be verified before install.",0xFFB7C3D0);}text(x+24,y+270,"Esc = close  |  U = open update settings",0xFF6EE7B7);}
+
+/* Native first-run screens. Disk installation and secure authentication are not implemented. */
+static void draw_welcome(void){
+ uint32_t w=sw>760?680:sw-32,h=sh>560?430:sh-32,x=(sw-w)/2,y=(sh-h)/2;
+ rect(0,0,sw,sh,0xFF0B1220);rect(x+8,y+8,w,h,0x55000000);rect(x,y,w,h,0xFF151F30);frame(x,y,w,h,0xFF34445E);
+ rect(x,y,w,5,0xFF4F8CFF);rect(x+34,y+34,44,44,0xFF3478F6);grid(x+45,y+45,0xFFFFFFFF);
+ text(x+94,y+40,"Welcome to MyOS",0xFFFFFFFF);text(x+94,y+62,"A fresh start for your computer",0xFF9EADC2);line(x+34,y+98,w-68,0xFF344155);
+ text(x+36,y+124,"Choose how you want to continue",0xFFFFFFFF);
+ rect(x+34,y+160,w-68,78,0xFF202D42);frame(x+34,y+160,w-68,78,0xFF3B82F6);text(x+54,y+180,"Try MyOS",0xFFFFFFFF);text(x+54,y+202,"Open the live desktop without changing your disks.",0xFFB7C3D0);
+ rect(x+34,y+254,w-68,78,0xFF1B2638);frame(x+34,y+254,w-68,78,0xFF3A4A63);text(x+54,y+274,"Install MyOS",0xFFFFFFFF);text(x+54,y+296,"Review installation readiness and safety status.",0xFFB7C3D0);
+ text(x+36,y+h-36,"ENTER Try MyOS     I Install     No disk changes are made here",0xFF6EE7B7);
+}
+static void draw_signin(void){
+ uint32_t w=sw>650?520:sw-32,h=370,x=(sw-w)/2,y=(sh-h)/2;
+ rect(0,0,sw,sh,0xFF0B1220);rect(x+8,y+8,w,h,0x55000000);rect(x,y,w,h,0xFF151F30);frame(x,y,w,h,0xFF34445E);rect(x,y,w,5,0xFF4F8CFF);
+ rect(x+w/2-24,y+30,48,48,0xFF263B5A);text(x+w/2-8,y+45,"M",0xFFFFFFFF);text(x+w/2-52,y+96,"Welcome back",0xFFFFFFFF);text(x+w/2-80,y+120,"Sign in to your MyOS session",0xFF9EADC2);
+ rect(x+42,y+158,w-84,48,0xFF202D42);frame(x+42,y+158,w-84,48,0xFF3B82F6);text(x+58,y+177,"MyOS User",0xFFFFFFFF);
+ rect(x+42,y+220,w-84,42,0xFF1B2638);frame(x+42,y+220,w-84,42,0xFF3A4A63);text(x+58,y+236,"Local demo session",0xFFB7C3D0);
+ text(x+42,y+284,"Secure accounts/passwords are not implemented yet.",0xFFFBBF24);
+ rect(x+w-174,y+316,132,34,0xFF2563EB);frame(x+w-174,y+316,132,34,0xFF60A5FA);text(x+w-151,y+329,"Continue",0xFFFFFFFF);text(x+42,y+h-18,"ENTER Continue     ESC Back",0xFF6EE7B7);
+}
+static void draw_installer(void){
+ uint32_t w=sw>760?680:sw-32,h=430,x=(sw-w)/2,y=(sh-h)/2;
+ rect(0,0,sw,sh,0xFF0B1220);rect(x+8,y+8,w,h,0x55000000);rect(x,y,w,h,0xFF151F30);frame(x,y,w,h,0xFF34445E);rect(x,y,w,5,0xFFF59E0B);
+ text(x+32,y+28,"Install MyOS",0xFFFFFFFF);text(x+32,y+54,"Installation readiness",0xFF9EADC2);line(x+32,y+82,w-64,0xFF344155);
+ rect(x+32,y+104,28,28,0xFF14532D);text(x+41,y+114,"1",0xFFFFFFFF);text(x+74,y+108,"Boot environment",0xFFFFFFFF);text(x+74,y+128,"This screen is running from the live kernel.",0xFFB7C3D0);
+ rect(x+32,y+156,28,28,0xFF7F1D1D);text(x+41,y+166,"!",0xFFFFFFFF);text(x+74,y+160,"Disk installer unavailable",0xFFFFFFFF);text(x+74,y+182,"Disk detection, partitioning and file copying are not ready.",0xFFFBBF24);
+ rect(x+32,y+218,w-64,64,0xFF2A2025);frame(x+32,y+218,w-64,64,0xFF854D4D);text(x+48,y+232,"SAFETY: No disks have been changed.",0xFFFFFFFF);text(x+48,y+254,"Install is disabled until a tested installer exists.",0xFFFFC4C4);
+ rect(x+32,y+h-72,128,38,0xFF263449);frame(x+32,y+h-72,128,38,0xFF536780);text(x+62,y+h-58,"Back",0xFFFFFFFF);
+ rect(x+w-194,y+h-72,162,38,0xFF202A3A);frame(x+w-194,y+h-72,162,38,0xFF536780);text(x+w-174,y+h-58,"Try MyOS instead",0xFFFFFFFF);text(x+32,y+h-20,"ESC Back     T Try MyOS",0xFF6EE7B7);
+}
+static void desktop(void){rect(0,0,sw,sh,0xFF0B1020);rect(0,60,sw,sh-112,0xFF101827);rect(sw/2,60,sw/2,sh-112,0xFF111D31);rect(0,0,sw,60,0xFF171D29);line(0,59,sw,0xFF2D394C);rect(18,16,28,28,0xFF3B82F6);grid(23,20,0xFFFFFFFF);text(58,18,"MyOS",0xFFFFFFFF);text(58,34,"Native Desktop",0xFF8B98AB);if(sw>520){text(sw-305,23,"CPU",0xFF8B98AB);text(sw-265,23,"RAM",0xFF8B98AB);text(sw-215,23,"NET",0xFF8B98AB);text(sw-155,23,"LIVE",0xFF6EE7B7);}folder(34,92);text(30,120,"Files",0xFFE8EDF5);terminal(34,156);text(25,184,"Terminal",0xFFE8EDF5);settings(34,220);text(22,248,"Settings",0xFFE8EDF5);uint32_t w=sw>900?650:(sw>700?570:sw-120),h=330,x=(sw-w)/2,y=100;window(x,y,w,h,"Welcome to MyOS",0xFF3B82F6);text(x+34,y+70,"A native x86-64 desktop.",0xFFFFFFFF);text(x+34,y+94,"Mouse and keyboard input are now active.",0xFFB7C3D0);line(x+34,y+130,w-68,0xFF344155);text(x+34,y+154,"Quick access",0xFF8B98AB);rect(x+34,y+180,150,72,0xFF202A3A);folder(x+52,y+198);text(x+52,y+224,"Files",0xFFFFFFFF);rect(x+204,y+180,150,72,0xFF202A3A);terminal(x+222,y+198);text(x+222,y+224,"Terminal",0xFFFFFFFF);rect(x+374,y+180,150,72,0xFF202A3A);settings(x+392,y+198);text(x+392,y+224,"Settings",0xFFFFFFFF);text(x+34,y+286,"S = launcher   Esc = close   Left click = select",0xFF6EE7B7);uint32_t ty=sh-52;rect(0,ty,sw,52,0xFF171D29);line(0,ty,sw,0xFF303B4E);rect(14,ty+10,34,32,0xFF2563EB);grid(22,ty+16,0xFFFFFFFF);rect(62,ty+10,44,32,0xFF202A3A);folder(72,ty+15);rect(112,ty+10,44,32,0xFF202A3A);terminal(121,ty+15);rect(162,ty+10,44,32,0xFF202A3A);settings(171,ty+15);if(launcher_open)draw_launcher();if(settings_open)draw_settings();}
+static void handle_mouse_click(int x,int y){
+ if(boot_screen){
+  uint32_t w=sw>760?680:sw-32,h=sh>560?430:sh-32,bx=(sw-w)/2,by=(sh-h)/2;
+  if(boot_screen==1){if(y>=(int)by+150&&y<(int)by+242)boot_screen=3;else if(y>=(int)by+244&&y<(int)by+340)boot_screen=2;}
+  else if(boot_screen==2){if(y>=(int)(by+h-82)&&x<(int)bx+180)boot_screen=1;else if(y>=(int)(by+h-82)&&x>(int)bx+(int)w-205)boot_screen=3;}
+  else if(boot_screen==3){uint32_t swid=sw>650?520:sw-32,sx=(sw-swid)/2,sy=(sh-370)/2;if(y>=(int)sy+310&&x>(int)sx+(int)swid-184)boot_screen=0;else return;}
+  cursor_hide();if(boot_screen==1)draw_welcome();else if(boot_screen==2)draw_installer();else if(boot_screen==3)draw_signin();else desktop();cursor_draw(mouse_x,mouse_y);return;
+ }
+ uint32_t w=sw>700?560:sw-40,pw_x=(sw-w)/2,pw_y=100;int open_settings=0;
+ if(settings_open){if(y>=(int)pw_y&&y<(int)pw_y+38&&x>=(int)(pw_x+w-42))settings_open=0;else if(x>=(int)pw_x+24&&x<(int)pw_x+214&&y>=(int)pw_y+140&&y<(int)pw_y+178)update_checked=1;else return;}
+ else{uint32_t ww=sw>900?650:(sw>700?570:sw-120),wx=(sw-ww)/2,wy=100;if((x>=15&&x<=75&&y>=210&&y<=258)||(x>=162&&x<=206&&y>=(int)sh-42&&y<(int)sh-10))open_settings=1;if(x>=(int)wx+374&&x<(int)wx+524&&y>=(int)wy+180&&y<(int)wy+252)open_settings=1;if(launcher_open){uint32_t lw=sw>850?560:sw-80,lh=sh>650?430:sh-150,lx=(sw-lw)/2,ly=(sh-lh)/2;if(x>=(int)lx+360&&x<(int)lx+510&&y>=(int)ly+112&&y<(int)ly+200)open_settings=1;}if(!open_settings)return;settings_open=1;launcher_open=0;}
+ cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);
+}
+static void input(void){
+ if(!(inb(0x64)&1)) return;
+ if(inb(0x64)&0x20) return;
+ uint8_t s=inb(0x60);
+ if(s&0x80) return;
+ if(boot_screen){
+  if(boot_screen==1){if(s==0x1C||s==0x14)boot_screen=3;else if(s==0x17)boot_screen=2;}
+  else if(boot_screen==2){if(s==0x01)boot_screen=1;else if(s==0x14)boot_screen=3;}
+  else if(boot_screen==3){if(s==0x1C)boot_screen=0;else if(s==0x01)boot_screen=1;}
+  cursor_hide();if(boot_screen==1)draw_welcome();else if(boot_screen==2)draw_installer();else if(boot_screen==3)draw_signin();else desktop();cursor_draw(mouse_x,mouse_y);return;
+ }
+ if(s==0x1F){cursor_hide();launcher_open=1;settings_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
+ if(s==0x01){cursor_hide();launcher_open=0;settings_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
+ if(s==0x16){cursor_hide();settings_open=1;launcher_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
+}
+void kernel_main(uint64_t magic,struct multiboot_info*mb){serial_init();serial_puts("MyOS: kernel start\r\n");if((uint32_t)magic!=MULTIBOOT_MAGIC||!mb){vga_msg("MyOS: invalid Multiboot data",0x4F);halt();}if(!(mb->flags&FB_FLAG)||!mb->framebuffer_addr||mb->framebuffer_bpp!=32||!mb->framebuffer_pitch){vga_msg("MyOS: framebuffer unavailable",0x4E);halt();}fb=(uint32_t*)(uintptr_t)mb->framebuffer_addr;pitch=mb->framebuffer_pitch;sw=mb->framebuffer_width;sh=mb->framebuffer_height;if(sw<320||sh<200){vga_msg("MyOS: invalid framebuffer size",0x4E);halt();}memory_init(mb->mem_upper);{struct myos_memory_stats ms;memory_stats(&ms);serial_puts("MyOS: memory manager online\r\n");if(ms.heap_end>ms.heap_start)serial_puts("MyOS: kernel heap available\r\n");else serial_puts("MyOS: kernel heap unavailable\r\n");}mouse_x=(int)sw/2;mouse_y=(int)sh/2;draw_welcome();mouse_init();cursor_draw(mouse_x,mouse_y);serial_puts("MyOS: first-run welcome screen ready\r\n");for(;;){input();mouse_poll();__asm__ volatile("pause");}}
