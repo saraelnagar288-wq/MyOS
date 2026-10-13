@@ -68,7 +68,7 @@ jobs:
               "install_mode": "manual",
               "automatic_install_supported": False
           }
-          Path("dist/latest.json").write_text(json.dumps(manifest, indent=2) + "\\n")
+          Path("dist/latest.json").write_text(json.dumps(manifest, indent=2) + "\n")
           PY
 
       - name: Verify release SHA-256
@@ -96,10 +96,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" \\
-            dist/MyOS.iso dist/MyOS.iso.sha256 dist/latest.json \\
-            --repo "${GITHUB_REPOSITORY}" \\
-            --title "MyOS ${GITHUB_REF_NAME}" \\
+          gh release create "${GITHUB_REF_NAME}" \
+            dist/MyOS.iso dist/MyOS.iso.sha256 dist/latest.json \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "MyOS ${GITHUB_REF_NAME}" \
             --generate-notes
 
       - name: Upload artifacts for manual workflow runs
