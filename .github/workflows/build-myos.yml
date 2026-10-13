@@ -37,22 +37,36 @@ jobs:
         working-directory: MyOS/core
         run: |
           set +e
-          timeout 8s qemu-system-x86_64 -cdrom MyOS.iso -m 256M -vga std -serial stdio -display none
-          status=$?
+          timeout 8s qemu-system-x86_64 -cdrom MyOS.iso -m 256M -vga std -serial stdio -display none 2>&1 | tee /tmp/myos-bios.log
+          status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
             echo "QEMU BIOS smoke test failed with exit code $status"
             exit "$status"
+          fi
+          if ! grep -q "MyOS: kernel start" /tmp/myos-bios.log; then
+            echo "BIOS smoke test did not reach kernel_main"
+            exit 1
           fi
 
       - name: UEFI boot smoke test
         working-directory: MyOS/core
         run: |
           set +e
-          timeout 8s qemu-system-x86_64 -cdrom MyOS.iso -m 256M -vga std -serial stdio -display none             -bios /usr/share/OVMF/OVMF_CODE_4M.fd
-          status=$?
+          OVMF_CODE="$(find /usr/share/OVMF -maxdepth 1 -type f -name 'OVMF_CODE*.fd' ! -name '*secboot*' ! -name '*snakeoil*' 2>/dev/null | sort | head -n 1)"
+          if [ -z "$OVMF_CODE" ]; then
+            echo "No compatible OVMF_CODE firmware file was found under /usr/share/OVMF"
+            ls -la /usr/share/OVMF || true
+            exit 1
+          fi
+          timeout 8s qemu-system-x86_64 -cdrom MyOS.iso -m 256M -vga std -serial stdio -display none -drive if=pflash,format=raw,unit=0,file="$OVMF_CODE",readonly=on 2>&1 | tee /tmp/myos-uefi.log
+          status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
             echo "QEMU UEFI smoke test failed with exit code $status"
             exit "$status"
+          fi
+          if ! grep -q "MyOS: kernel start" /tmp/myos-uefi.log; then
+            echo "UEFI smoke test did not reach kernel_main"
+            exit 1
           fi
 
       - name: Upload MyOS USB image
