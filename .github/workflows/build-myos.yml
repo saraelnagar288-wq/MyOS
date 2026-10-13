@@ -48,7 +48,13 @@ jobs:
         working-directory: MyOS/core
         run: |
           set +e
-          timeout 8s qemu-system-x86_64 -cdrom MyOS.iso -m 256M -vga std -serial stdio -display none             -bios /usr/share/OVMF/OVMF_CODE_4M.fd
+          OVMF_CODE="$(find /usr/share/OVMF -maxdepth 1 -type f \\( -name 'OVMF_CODE_4M.fd' -o -name 'OVMF_CODE.fd' -o -name 'OVMF_CODE_4M.ms.fd' \\) | head -n 1)"
+          if [ -z "$OVMF_CODE" ]; then
+            echo "No compatible OVMF_CODE firmware file was found under /usr/share/OVMF"
+            ls -la /usr/share/OVMF || true
+            exit 1
+          fi
+          timeout 8s qemu-system-x86_64 -cdrom MyOS.iso -m 256M -vga std -serial stdio -display none -bios "$OVMF_CODE"
           status=$?
           if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
             echo "QEMU UEFI smoke test failed with exit code $status"
