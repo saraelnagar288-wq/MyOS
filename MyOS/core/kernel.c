@@ -160,7 +160,7 @@ static void desktop(void){
  if(active_app) draw_app_window();
 }
 static void animate_launcher(uint8_t open){
- if(open){launcher_open=1;settings_open=0;launcher_progress=0;
+ if(open){launcher_open=1;settings_open=0;active_app=0;launcher_progress=0;
   for(uint32_t p=0;p<=100;p+=20){launcher_progress=(uint8_t)p;cursor_hide();desktop();for(volatile uint32_t d=0;d<18000;d++)__asm__ volatile("pause");}
  }else{
   if(!launcher_open)return;
@@ -170,6 +170,7 @@ static void animate_launcher(uint8_t open){
  cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);
 }
 static void handle_mouse_click(int x,int y){
+ if(!boot_screen&&active_app){uint32_t aw=sw>760?600:sw-32,ah=sh>600?350:sh-100,ax=(sw-aw)/2,ay=(sh-ah-48)/2;if(y>=(int)ay&&y<(int)ay+38&&x>=(int)(ax+aw-42)){active_app=0;cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;}}
  if(boot_screen){
   uint32_t w=sw>760?680:sw-32,h=sh>560?430:sh-32,bx=(sw-w)/2,by=(sh-h)/2;
   if(boot_screen==1){if(y>=(int)by+150&&y<(int)by+242)boot_screen=3;else if(y>=(int)by+244&&y<(int)by+340)boot_screen=2;}
