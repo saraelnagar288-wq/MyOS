@@ -130,8 +130,8 @@ static void input(void){
   else if(boot_screen==3){if(s==0x1C)boot_screen=0;else if(s==0x01)boot_screen=1;}
   cursor_hide();if(boot_screen==1)draw_welcome();else if(boot_screen==2)draw_installer();else if(boot_screen==3)draw_signin();else desktop();cursor_draw(mouse_x,mouse_y);return;
  }
- if(s==0x1F){cursor_hide();launcher_open=1;settings_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
- if(s==0x01){cursor_hide();launcher_open=0;settings_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
+ if(s==0x1F){cursor_hide();launcher_open=1;settings_open=0;files_open=0;terminal_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
+ if(s==0x01){cursor_hide();launcher_open=0;settings_open=0;files_open=0;terminal_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
  if(s==0x16){cursor_hide();settings_open=1;launcher_open=0;files_open=0;terminal_open=0;desktop();cursor_draw(mouse_x,mouse_y);}if(s==0x21){cursor_hide();files_open=1;terminal_open=0;settings_open=0;launcher_open=0;desktop();cursor_draw(mouse_x,mouse_y);}if(s==0x14){cursor_hide();terminal_open=1;files_open=0;settings_open=0;launcher_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
 }
 void kernel_main(uint64_t magic,struct multiboot_info*mb){serial_init();serial_puts("MyOS: kernel start\r\n");if((uint32_t)magic!=MULTIBOOT_MAGIC||!mb){vga_msg("MyOS: invalid Multiboot data",0x4F);halt();}if(!(mb->flags&FB_FLAG)||!mb->framebuffer_addr||mb->framebuffer_bpp!=32||!mb->framebuffer_pitch){vga_msg("MyOS: framebuffer unavailable",0x4E);halt();}fb=(uint32_t*)(uintptr_t)mb->framebuffer_addr;pitch=mb->framebuffer_pitch;sw=mb->framebuffer_width;sh=mb->framebuffer_height;if(sw<320||sh<200){vga_msg("MyOS: invalid framebuffer size",0x4E);halt();}memory_init(mb->mem_upper);{struct myos_memory_stats ms;memory_stats(&ms);serial_puts("MyOS: memory manager online\r\n");if(ms.heap_end>ms.heap_start)serial_puts("MyOS: kernel heap available\r\n");else serial_puts("MyOS: kernel heap unavailable\r\n");}mouse_x=(int)sw/2;mouse_y=(int)sh/2;draw_welcome();mouse_init();cursor_draw(mouse_x,mouse_y);serial_puts("MyOS: first-run welcome screen ready\r\n");for(;;){input();mouse_poll();__asm__ volatile("pause");}}
