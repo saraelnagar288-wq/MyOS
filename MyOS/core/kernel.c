@@ -40,7 +40,7 @@ static void folder(uint32_t x,uint32_t y){rect(x,y+5,25,17,0xFFF4C95D);rect(x+3,
 static void terminal(uint32_t x,uint32_t y){frame(x,y,27,22,0xFFB7C3D0);rect(x+5,y+9,5,2,0xFF5EEAD4);rect(x+12,y+9,8,2,0xFF5EEAD4);}
 static void settings(uint32_t x,uint32_t y){rect(x+9,y,9,24,0xFFB8C2D1);rect(x,y+8,27,9,0xFFB8C2D1);rect(x+10,y+10,7,7,0xFF151A23);}
 static void window(uint32_t x,uint32_t y,uint32_t w,uint32_t h,const char*t,uint32_t a){rect(x+7,y+7,w,h,0x55000000);rect(x,y,w,h,0xFF182130);frame(x,y,w,h,0xFF354155);rect(x,y,w,38,0xFF202A3A);rect(x,y,4,38,a);text(x+18,y+15,t,0xFFFFFFFF);rect(x+w-72,y+14,8,8,0xFF8794A8);rect(x+w-50,y+14,8,8,0xFF8794A8);rect(x+w-28,y+14,8,8,0xFFF87171);}
-static void draw_launcher(void){uint32_t w=sw>850?560:sw-80,h=sh>650?430:sh-150,x=(sw-w)/2,y=(sh-h)/2;rect(x+8,y+8,w,h,0x55000000);rect(x,y,w,h,0xFF141B28);frame(x,y,w,h,0xFF40506A);rect(x,y,w,62,0xFF1E2736);text(x+24,y+22,"Search MyOS",0xFF8B98AB);line(x+24,y+48,w-48,0xFF344155);text(x+24,y+86,"Applications",0xFF8B98AB);rect(x+24,y+112,150,88,0xFF202A3A);folder(x+48,y+132);text(x+48,y+166,"Files",0xFFFFFFFF);rect(x+192,y+112,150,88,0xFF202A3A);terminal(x+214,y+132);text(x+214,y+166,"Terminal",0xFFFFFFFF);rect(x+360,y+112,150,88,0xFF202A3A);settings(x+382,y+132);text(x+382,y+166,"Settings",0xFFFFFFFF);text(x+24,y+238,"System",0xFF8B98AB);text(x+24,y+268,"Display",0xFFD5DCE7);text(x+24,y+290,"Network",0xFFD5DCE7);text(x+24,y+312,"Appearance",0xFFD5DCE7);text(x+24,y+356,"Press ESC to return to desktop",0xFF6EE7B7);}
+static void draw_launcher(void){uint32_t w=sw>850?560:sw-24,h=sh>650?430:sh-150,x=12,y=sh-h-52;if(w>sw-24)w=sw-24;if(y<8)y=8;rect(x+8,y+8,w,h,0x55000000);rect(x,y,w,h,0xFF141B28);frame(x,y,w,h,0xFF40506A);rect(x,y,w,62,0xFF1E2736);text(x+24,y+22,"Search MyOS",0xFF8B98AB);line(x+24,y+48,w-48,0xFF344155);text(x+24,y+86,"Applications",0xFF8B98AB);rect(x+24,y+112,150,88,0xFF202A3A);folder(x+48,y+132);text(x+48,y+166,"Files",0xFFFFFFFF);rect(x+192,y+112,150,88,0xFF202A3A);terminal(x+214,y+132);text(x+214,y+166,"Terminal",0xFFFFFFFF);rect(x+360,y+112,150,88,0xFF202A3A);settings(x+382,y+132);text(x+382,y+166,"Settings",0xFFFFFFFF);text(x+24,y+238,"System",0xFF8B98AB);text(x+24,y+268,"Display",0xFFD5DCE7);text(x+24,y+290,"Network",0xFFD5DCE7);text(x+24,y+312,"Appearance",0xFFD5DCE7);text(x+24,y+356,"Press ESC to return to desktop",0xFF6EE7B7);}
 static int mouse_x,mouse_y,mouse_cycle,mouse_buttons,cursor_visible;
 static uint8_t mouse_packet[3];
 #define CURSOR_W 18
@@ -180,7 +180,7 @@ static void handle_mouse_click(int x,int y){
   if(x>=162&&x<206){settings_open=1;active_app=3;launcher_open=0;cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;}
  }
  if(launcher_open){
-  uint32_t lw=sw>850?560:sw-80,lh=sh>650?430:sh-150,lx=(sw-lw)/2,ly=(sh-lh)/2;
+  uint32_t lw=sw>850?560:sw-24,lh=sh>650?430:sh-150,lx=12,ly=sh-lh-52;if(lw>sw-24)lw=sw-24;if(ly<8)ly=8;
   if(y>=(int)ly+112&&y<(int)ly+200){
    if(x>=(int)lx+24&&x<(int)lx+174){files_open=1;active_app=1;launcher_open=0;}
    else if(x>=(int)lx+192&&x<(int)lx+342){terminal_open=1;active_app=2;launcher_open=0;}
