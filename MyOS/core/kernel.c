@@ -144,7 +144,8 @@ static void desktop(void){
  text(56,ty+18,"MyOS",0xFFFFFFFF);rect(112,ty+7,38,34,0xFF202A3A);folder(118,ty+13);
  rect(156,ty+7,38,34,0xFF202A3A);terminal(162,ty+13);rect(200,ty+7,38,34,0xFF202A3A);settings(206,ty+13);
  rect(sw-142,ty+7,132,34,0xFF202A3A);text(sw-130,ty+18,"NET  |  VOL",0xFFB7C3D0);
- if(launcher_open)draw_launcher();if(settings_open)draw_settings();
+ if(launcher_open) draw_launcher();
+ if(settings_open) draw_settings();
 }
 static void handle_mouse_click(int x,int y){
  if(boot_screen){
@@ -171,7 +172,8 @@ static void handle_mouse_click(int x,int y){
  else{uint32_t ww=sw>900?560:(sw>700?520:sw-110),wx=(sw-ww)/2,wy=(sh-220-58)/2;
   if((x>=15&&x<=75&&y>=210&&y<=258)||(x>=200&&x<=238&&y>=(int)sh-41&&y<(int)sh-7))settings_open=1;
   if(x>=(int)wx+322&&x<(int)wx+460&&y>=(int)wy+118&&y<(int)wy+176)settings_open=1;
-  if(!settings_open)return;launcher_open=0;
+  if(!settings_open) return;
+  launcher_open=0;
  }
  cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);
 }
