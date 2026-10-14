@@ -31,7 +31,7 @@ jobs:
           python3 - <<'PY'
           import os, re, sys
           version = os.environ.get("VERSION", "")
-          if not re.fullmatch(r"v?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)", version):
+          if not re.fullmatch(r"v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", version):
               sys.exit("Version must be a stable semantic version such as 0.2.0 or v0.2.0")
           if os.environ.get("GITHUB_REF_TYPE") == "tag" and version != os.environ.get("GITHUB_REF_NAME"):
               sys.exit("Release tag and version do not match")
