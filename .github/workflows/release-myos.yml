@@ -7,19 +7,36 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version, e.g. 0.1.0 (manual runs do not publish unless a matching tag exists)"
+        description: "Stable version, e.g. 0.2.0 (preview only unless run on a version tag)"
         required: true
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Validate requested version
+        env:
+          VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+        run: |
+          python3 - <<'PY'
+          import os, re, sys
+          version = os.environ.get("VERSION", "")
+          if not re.fullmatch(r"v?(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)", version):
+              sys.exit("Version must be a stable semantic version such as 0.2.0 or v0.2.0")
+          if os.environ.get("GITHUB_REF_TYPE") == "tag" and version != os.environ.get("GITHUB_REF_NAME"):
+              sys.exit("Release tag and version do not match")
+          print(f"Validated version: {version}")
+          PY
 
       - name: Install build dependencies
         run: |
@@ -34,7 +51,7 @@ jobs:
           test -s MyOS.iso
           sha256sum MyOS.iso > MyOS.iso.sha256
 
-      - name: Create update manifest
+      - name: Prepare release assets
         env:
           VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
           REPOSITORY: ${{ github.repository }}
@@ -43,53 +60,24 @@ jobs:
           mkdir -p dist
           cp MyOS/core/MyOS.iso dist/MyOS.iso
           cp MyOS/core/MyOS.iso.sha256 dist/MyOS.iso.sha256
-          python3 - <<'PY'
-          import hashlib, json, os
-          from pathlib import Path
-          version = os.environ["VERSION"]
-          repo = os.environ["REPOSITORY"]
-          server = os.environ["SERVER_URL"]
-          image = Path("dist/MyOS.iso")
-          digest = hashlib.sha256(image.read_bytes()).hexdigest()
-          tag = version if version.startswith("v") else "v" + version
-          manifest = {
-              "product": "MyOS",
-              "version": version.removeprefix("v"),
-              "tag": tag,
-              "channel": "stable",
-              "architecture": "x86_64",
-              "artifact": "MyOS.iso",
-              "size_bytes": image.stat().st_size,
-              "sha256": digest,
-              "download_url": f"{server}/{repo}/releases/download/{tag}/MyOS.iso",
-              "checksum_url": f"{server}/{repo}/releases/download/{tag}/MyOS.iso.sha256",
-              "release_url": f"{server}/{repo}/releases/tag/{tag}",
-              "notes": "MyOS stable release",
-              "install_mode": "manual",
-              "automatic_install_supported": False
-          }
-          Path("dist/latest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-          PY
+          python3 update-server/manifest.py create \
+            --image dist/MyOS.iso \
+            --checksum dist/MyOS.iso.sha256 \
+            --version "$VERSION" \
+            --repository "$REPOSITORY" \
+            --server-url "$SERVER_URL" \
+            --output dist/latest.json
 
-      - name: Verify release SHA-256
+      - name: Independently validate release assets
         run: |
-          python3 - <<'PY'
-          import hashlib, json
-          from pathlib import Path
-          image = Path("dist/MyOS.iso")
-          manifest = json.loads(Path("dist/latest.json").read_text())
-          checksum_line = Path("dist/MyOS.iso.sha256").read_text().strip().split()
-          if not checksum_line or len(checksum_line[0]) != 64:
-              raise SystemExit("Invalid SHA-256 checksum file")
-          actual = hashlib.sha256(image.read_bytes()).hexdigest()
-          if actual != checksum_line[0]:
-              raise SystemExit("SHA-256 file does not match MyOS.iso")
-          if actual != manifest.get("sha256"):
-              raise SystemExit("Manifest SHA-256 does not match MyOS.iso")
-          if manifest.get("size_bytes") != image.stat().st_size:
-              raise SystemExit("Manifest size does not match MyOS.iso")
-          print(f"SHA-256 verified: {actual}")
-          PY
+          python3 update-server/manifest.py validate \
+            --manifest dist/latest.json \
+            --image dist/MyOS.iso \
+            --checksum dist/MyOS.iso.sha256
+          python3 -m json.tool dist/latest.json >/dev/null
+          test -s dist/MyOS.iso
+          test -s dist/MyOS.iso.sha256
+          test -s dist/latest.json
 
       - name: Publish GitHub Release
         if: github.ref_type == 'tag'
