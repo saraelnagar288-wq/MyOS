@@ -8,9 +8,22 @@ static uint64_t heap_start;
 static uint64_t heap_end;
 static uint64_t next_free;
 
-static uint64_t align_up(uint64_t value, uint64_t alignment)
+/* Return 0 on overflow instead of wrapping an address back into low memory. */
+static int align_up_checked(uint64_t value, uint64_t alignment, uint64_t *out)
 {
-    return (value + alignment - 1ULL) & ~(alignment - 1ULL);
+    uint64_t remainder;
+    uint64_t increment;
+
+    if (!out || alignment == 0 || (alignment & (alignment - 1ULL)) != 0)
+        return 0;
+
+    remainder = value & (alignment - 1ULL);
+    increment = remainder ? alignment - remainder : 0;
+    if (value > UINT64_MAX - increment)
+        return 0;
+
+    *out = value + increment;
+    return 1;
 }
 
 void memory_init(uint32_t mem_upper_kb)
@@ -26,15 +39,32 @@ void memory_init(uint32_t mem_upper_kb)
 void *kmalloc(uint64_t size, uint64_t alignment)
 {
     uint64_t start;
+    uint64_t end;
+    uint64_t next;
 
-    if (size == 0 || alignment == 0 || (alignment & (alignment - 1ULL)) != 0)
+    if (size == 0 || alignment == 0 ||
+        (alignment & (alignment - 1ULL)) != 0)
         return (void *)0;
 
-    start = align_up(next_free, alignment);
+    if (!align_up_checked(next_free, alignment, &start))
+        return (void *)0;
+
     if (start < heap_start || start > heap_end || size > heap_end - start)
         return (void *)0;
 
-    next_free = align_up(start + size, PAGE_SIZE);
+    /* Guard both additions before calculating the allocation end and page end. */
+    if (start > UINT64_MAX - size)
+        return (void *)0;
+    end = start + size;
+
+    if (!align_up_checked(end, PAGE_SIZE, &next))
+        return (void *)0;
+
+    /* Keep allocator state valid even when the last allocation ends at heap_end. */
+    if (next > heap_end)
+        next = heap_end;
+    next_free = next;
+
     return (void *)(uintptr_t)start;
 }
 
