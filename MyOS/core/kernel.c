@@ -11,7 +11,13 @@ struct multiboot_info {
  uint8_t framebuffer_bpp,framebuffer_type,color_info[6];
 } __attribute__((packed));
 
-static uint32_t *fb; static uint32_t pitch,sw,sh; static uint8_t launcher_open,settings_open,files_open,terminal_open,update_checked,boot_screen=1;
+static uint32_t *fb; static uint32_t pitch,sw,sh; static uint8_t launcher_open,settings_open,files_open,terminal_open,update_checked,boot_screen=1,active_app;
+static void close_active_app(void){
+ if(active_app==1)files_open=0;
+ else if(active_app==2)terminal_open=0;
+ else if(active_app==3)settings_open=0;
+ active_app=settings_open?3:(terminal_open?2:(files_open?1:0));
+}
 
 static void outb(uint16_t p,uint8_t v){__asm__ volatile("outb %0,%1"::"a"(v),"Nd"(p));}
 static uint8_t inb(uint16_t p){uint8_t v;__asm__ volatile("inb %1,%0":"=a"(v):"Nd"(p));return v;}
@@ -117,7 +123,7 @@ static void desktop(void){
  folder(34,92);text(30,120,"Files",0xFFE8EDF5);
  terminal(34,156);text(25,184,"Terminal",0xFFE8EDF5);
  settings(34,220);text(22,248,"Settings",0xFFE8EDF5);
- if(files_open){
+ if(active_app==1&&files_open){
   uint32_t w=sw>700?560:sw-40,h=300,x=(sw-w)/2,y=100;
   window(x,y,w,h,"My Files - Preview",0xFFF4C95D);
   text(x+24,y+62,"My Files",0xFFFFFFFF);
@@ -125,7 +131,7 @@ static void desktop(void){
   rect(x+24,y+118,120,72,0xFF202A3A);folder(x+40,y+136);text(x+40,y+166,"Home",0xFFFFFFFF);
   rect(x+160,y+118,120,72,0xFF202A3A);folder(x+176,y+136);text(x+176,y+166,"Documents",0xFFFFFFFF);
   text(x+24,y+228,"Preview only: no files are read or changed.",0xFFFBBF24);
- }else if(terminal_open){
+ }else if(active_app==2&&terminal_open){
   uint32_t w=sw>700?560:sw-40,h=300,x=(sw-w)/2,y=100;
   window(x,y,w,h,"MyOS Terminal - Preview",0xFF5EEAD4);
   rect(x+12,y+48,w-24,h-60,0xFF090E16);
@@ -133,7 +139,7 @@ static void desktop(void){
   text(x+28,y+94,"Kernel shell is not implemented yet.",0xFFB7C3D0);
   text(x+28,y+124,"myos> _",0xFF6EE7B7);
   text(x+28,y+218,"Preview only: commands are not executed.",0xFFFBBF24);
- }else if(settings_open){
+ }else if(active_app==3&&settings_open){
   draw_settings();
  }else{
   uint32_t w=sw>900?650:(sw>700?570:sw-120),h=330,x=(sw-w)/2,y=100;
@@ -150,9 +156,9 @@ static void desktop(void){
  uint32_t ty=sh-52;
  rect(0,ty,sw,52,0xFF171D29);line(0,ty,sw,0xFF303B4E);
  rect(14,ty+10,34,32,0xFF2563EB);grid(22,ty+16,0xFFFFFFFF);
- rect(62,ty+10,44,32,files_open?0xFF34445E:0xFF202A3A);folder(72,ty+15);
- rect(112,ty+10,44,32,terminal_open?0xFF34445E:0xFF202A3A);terminal(121,ty+15);
- rect(162,ty+10,44,32,settings_open?0xFF34445E:0xFF202A3A);settings(171,ty+15);
+ rect(62,ty+10,44,32,active_app==1?0xFF34445E:0xFF202A3A);folder(72,ty+15);
+ rect(112,ty+10,44,32,active_app==2?0xFF34445E:0xFF202A3A);terminal(121,ty+15);
+ rect(162,ty+10,44,32,active_app==3?0xFF34445E:0xFF202A3A);settings(171,ty+15);
  if(files_open)rect(62,ty+43,44,2,0xFF60A5FA);
  if(terminal_open)rect(112,ty+43,44,2,0xFF60A5FA);
  if(settings_open)rect(162,ty+43,44,2,0xFF60A5FA);
@@ -169,16 +175,16 @@ static void handle_mouse_click(int x,int y){
  uint32_t ty=sh-52;
  if(y>=(int)ty){
   if(x>=14&&x<48){launcher_open=!launcher_open;cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;}
-  if(x>=62&&x<106){files_open=1;terminal_open=0;settings_open=0;launcher_open=0;cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;}
-  if(x>=112&&x<156){files_open=0;terminal_open=1;settings_open=0;launcher_open=0;cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;}
-  if(x>=162&&x<206){files_open=0;terminal_open=0;settings_open=1;launcher_open=0;cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;}
+  if(x>=62&&x<106){files_open=1;active_app=1;launcher_open=0;cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;}
+  if(x>=112&&x<156){terminal_open=1;active_app=2;launcher_open=0;cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;}
+  if(x>=162&&x<206){settings_open=1;active_app=3;launcher_open=0;cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;}
  }
  if(launcher_open){
   uint32_t lw=sw>850?560:sw-80,lh=sh>650?430:sh-150,lx=(sw-lw)/2,ly=(sh-lh)/2;
   if(y>=(int)ly+112&&y<(int)ly+200){
-   if(x>=(int)lx+24&&x<(int)lx+174){files_open=1;terminal_open=0;settings_open=0;launcher_open=0;}
-   else if(x>=(int)lx+192&&x<(int)lx+342){files_open=0;terminal_open=1;settings_open=0;launcher_open=0;}
-   else if(x>=(int)lx+360&&x<(int)lx+510){files_open=0;terminal_open=0;settings_open=1;launcher_open=0;}
+   if(x>=(int)lx+24&&x<(int)lx+174){files_open=1;active_app=1;launcher_open=0;}
+   else if(x>=(int)lx+192&&x<(int)lx+342){terminal_open=1;active_app=2;launcher_open=0;}
+   else if(x>=(int)lx+360&&x<(int)lx+510){settings_open=1;active_app=3;launcher_open=0;}
    else launcher_open=0;
   }else launcher_open=0;
   cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;
@@ -186,8 +192,8 @@ static void handle_mouse_click(int x,int y){
  if(settings_open||files_open||terminal_open){
   uint32_t w=sw>700?560:sw-40,wx=(sw-w)/2,wy=100;
   if(y>=(int)wy&&y<(int)wy+38&&x>=(int)(wx+w-42)){
-   settings_open=files_open=terminal_open=0;
-  }else if(settings_open&&x>=(int)wx+24&&x<(int)wx+214&&y>=(int)wy+140&&y<(int)wy+178){
+   close_active_app();
+  }else if(settings_open&&active_app==3&&x>=(int)wx+24&&x<(int)wx+214&&y>=(int)wy+140&&y<(int)wy+178){
    update_checked=1;
   }else return;
   cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;
@@ -200,9 +206,9 @@ static void handle_mouse_click(int x,int y){
   files_open=terminal_open=0;settings_open=1;launcher_open=0;cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;
  }
  uint32_t ww=sw>900?650:(sw>700?570:sw-120),wx=(sw-ww)/2,wy=100;
- if(x>=(int)wx+34&&x<(int)wx+184&&y>=(int)wy+180&&y<(int)wy+252){files_open=1;terminal_open=settings_open=launcher_open=0;}
- else if(x>=(int)wx+204&&x<(int)wx+354&&y>=(int)wy+180&&y<(int)wy+252){terminal_open=1;files_open=settings_open=launcher_open=0;}
- else if(x>=(int)wx+374&&x<(int)wx+524&&y>=(int)wy+180&&y<(int)wy+252){settings_open=1;files_open=terminal_open=launcher_open=0;}
+ if(x>=(int)wx+34&&x<(int)wx+184&&y>=(int)wy+180&&y<(int)wy+252){files_open=1;active_app=1;launcher_open=0;}
+ else if(x>=(int)wx+204&&x<(int)wx+354&&y>=(int)wy+180&&y<(int)wy+252){terminal_open=1;active_app=2;launcher_open=0;}
+ else if(x>=(int)wx+374&&x<(int)wx+524&&y>=(int)wy+180&&y<(int)wy+252){settings_open=1;active_app=3;launcher_open=0;}
  else return;
  cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);
 }
@@ -221,10 +227,10 @@ static void input(void){
  else if(s==0x01){
   cursor_hide();
   if(launcher_open)launcher_open=0;
-  else settings_open=files_open=terminal_open=0;
+  else close_active_app();
   desktop();cursor_draw(mouse_x,mouse_y);
- }else if(s==0x21){cursor_hide();files_open=1;terminal_open=settings_open=launcher_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
- else if(s==0x14){cursor_hide();terminal_open=1;files_open=settings_open=launcher_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
- else if(s==0x16){cursor_hide();settings_open=1;files_open=terminal_open=launcher_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
+ }else if(s==0x21){cursor_hide();files_open=1;active_app=1;launcher_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
+ else if(s==0x14){cursor_hide();terminal_open=1;active_app=2;launcher_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
+ else if(s==0x16){cursor_hide();settings_open=1;active_app=3;launcher_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
 }
 void kernel_main(uint64_t magic,struct multiboot_info*mb){serial_init();serial_puts("MyOS: kernel start\r\n");if((uint32_t)magic!=MULTIBOOT_MAGIC||!mb){vga_msg("MyOS: invalid Multiboot data",0x4F);halt();}if(!(mb->flags&FB_FLAG)||!mb->framebuffer_addr||mb->framebuffer_bpp!=32||!mb->framebuffer_pitch){vga_msg("MyOS: framebuffer unavailable",0x4E);halt();}fb=(uint32_t*)(uintptr_t)mb->framebuffer_addr;pitch=mb->framebuffer_pitch;sw=mb->framebuffer_width;sh=mb->framebuffer_height;if(sw<320||sh<200){vga_msg("MyOS: invalid framebuffer size",0x4E);halt();}memory_init(mb->mem_upper);{struct myos_memory_stats ms;memory_stats(&ms);serial_puts("MyOS: memory manager online\r\n");if(ms.heap_end>ms.heap_start)serial_puts("MyOS: kernel heap available\r\n");else serial_puts("MyOS: kernel heap unavailable\r\n");}mouse_x=(int)sw/2;mouse_y=(int)sh/2;draw_welcome();mouse_init();cursor_draw(mouse_x,mouse_y);serial_puts("MyOS: first-run welcome screen ready\r\n");for(;;){input();mouse_poll();__asm__ volatile("pause");}}
