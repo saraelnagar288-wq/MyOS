@@ -208,7 +208,6 @@ static void desktop(void){
  /* Tray and clock */
  rect(sw-142,ty+7,132,34,0xFF202A3A);
  text(sw-130,ty+18,"NET  |  VOL",0xFFB7C3D0);
- if(sw>520){char clockbuf[16];clockbuf[0]='0'+((mouse_cycle/3600)%10);clockbuf[1]='0'+((mouse_cycle/60)%10);clockbuf[2]=':';clockbuf[3]='0'+((mouse_cycle/10)%6);clockbuf[4]='0'+(mouse_cycle%10);clockbuf[5]='\\0';}
  if(launcher_open)draw_launcher();
  if(settings_open)draw_settings();
 }
