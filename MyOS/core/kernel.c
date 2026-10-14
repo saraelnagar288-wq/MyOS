@@ -34,7 +34,34 @@ static void folder(uint32_t x,uint32_t y){rect(x,y+5,25,17,0xFFF4C95D);rect(x+3,
 static void terminal(uint32_t x,uint32_t y){frame(x,y,27,22,0xFFB7C3D0);rect(x+5,y+9,5,2,0xFF5EEAD4);rect(x+12,y+9,8,2,0xFF5EEAD4);}
 static void settings(uint32_t x,uint32_t y){rect(x+9,y,9,24,0xFFB8C2D1);rect(x,y+8,27,9,0xFFB8C2D1);rect(x+10,y+10,7,7,0xFF151A23);}
 static void window(uint32_t x,uint32_t y,uint32_t w,uint32_t h,const char*t,uint32_t a){rect(x+7,y+7,w,h,0x55000000);rect(x,y,w,h,0xFF182130);frame(x,y,w,h,0xFF354155);rect(x,y,w,38,0xFF202A3A);rect(x,y,4,38,a);text(x+18,y+15,t,0xFFFFFFFF);rect(x+w-72,y+14,8,8,0xFF8794A8);rect(x+w-50,y+14,8,8,0xFF8794A8);rect(x+w-28,y+14,8,8,0xFFF87171);}
-static void draw_launcher(void){uint32_t w=sw>850?560:sw-80,h=sh>650?430:sh-150,x=(sw-w)/2,y=(sh-h)/2;rect(x+8,y+8,w,h,0x55000000);rect(x,y,w,h,0xFF141B28);frame(x,y,w,h,0xFF40506A);rect(x,y,w,62,0xFF1E2736);text(x+24,y+22,"Search MyOS",0xFF8B98AB);line(x+24,y+48,w-48,0xFF344155);text(x+24,y+86,"Applications",0xFF8B98AB);rect(x+24,y+112,150,88,0xFF202A3A);folder(x+48,y+132);text(x+48,y+166,"Files",0xFFFFFFFF);rect(x+192,y+112,150,88,0xFF202A3A);terminal(x+214,y+132);text(x+214,y+166,"Terminal",0xFFFFFFFF);rect(x+360,y+112,150,88,0xFF202A3A);settings(x+382,y+132);text(x+382,y+166,"Settings",0xFFFFFFFF);text(x+24,y+238,"System",0xFF8B98AB);text(x+24,y+268,"Display",0xFFD5DCE7);text(x+24,y+290,"Network",0xFFD5DCE7);text(x+24,y+312,"Appearance",0xFFD5DCE7);text(x+24,y+356,"Press ESC to return to desktop",0xFF6EE7B7);}
+static void draw_launcher(void){
+ /* Windows 11-inspired Start panel, anchored beside the MyOS taskbar button. */
+ uint32_t w=sw>900?520:(sw>620?sw-48:sw-24),h=sh>650?420:sh-140;
+ uint32_t x=12,y=sh-h-64;
+ if(x+w>sw-12)w=sw-24;
+ rect(x+6,y+6,w,h,0x44000000);
+ rect(x,y,w,h,0xF01B2433);frame(x,y,w,h,0xFF3B4A60);
+ rect(x+16,y+14,w-32,36,0xFF263247);frame(x+16,y+14,w-32,36,0xFF35445C);
+ text(x+30,y+27,"Search apps, settings and files",0xFF9EADC2);
+ text(x+20,y+70,"Pinned",0xFFFFFFFF);
+ text(x+w-102,y+70,"All apps  >",0xFFB7C3D0);
+ uint32_t gap=12,cardw=(w-56)/3,cardh=82;
+ if(cardw>150)cardw=150;
+ uint32_t sx=x+20;
+ const char* labels[6]={"My Files","Terminal","Settings","Task Manager","System Info","Updates"};
+ uint32_t colors[6]={0xFF3B82F6,0xFF0F766E,0xFF7C3AED,0xFF2563EB,0xFFB45309,0xFF475569};
+ for(uint32_t i=0;i<6;i++){
+  uint32_t col=i%3,row=i/3,cx=sx+col*(cardw+gap),cy=y+94+row*(cardh+14);
+  rect(cx,cy,cardw,cardh,0xFF263247);frame(cx,cy,cardw,cardh,0xFF35445C);
+  rect(cx+12,cy+12,28,28,colors[i]);
+  if(i==0)folder(cx+13,cy+14);else if(i==1)terminal(cx+13,cy+15);else if(i==2)settings(cx+13,cy+14);else grid(cx+20,cy+20,0xFFFFFFFF);
+  text(cx+12,cy+53,labels[i],0xFFF1F5F9);
+ }
+ uint32_t fy=y+h-54;rect(x+1,fy,w-2,53,0xFF151D2A);
+ rect(x+18,fy+10,30,30,0xFF3478F6);grid(x+24,fy+16,0xFFFFFFFF);
+ text(x+58,fy+14,"MyOS User",0xFFFFFFFF);text(x+58,fy+30,"Local session",0xFF9EADC2);
+ text(x+w-96,fy+19,"Power  o",0xFFB7C3D0);
+}
 static int mouse_x,mouse_y,mouse_cycle,mouse_buttons,cursor_visible;
 static uint8_t mouse_packet[3];
 #define CURSOR_W 18
@@ -71,8 +98,46 @@ static void cursor_draw(int x,int y){
 }
 static void cursor_hide(void){if(cursor_visible){cursor_restore(mouse_x,mouse_y);cursor_visible=0;}}
 static void cursor_move(int nx,int ny){if(nx<0)nx=0;if(ny<0)ny=0;if(nx>(int)sw-CURSOR_W)nx=(int)sw-CURSOR_W;if(ny>(int)sh-CURSOR_H)ny=(int)sh-CURSOR_H;if(nx==mouse_x&&ny==mouse_y)return;cursor_hide();mouse_x=nx;mouse_y=ny;cursor_draw(mouse_x,mouse_y);}
-static void handle_mouse_click(int x,int y);
-static void mouse_poll(void){for(;;){uint8_t st=inb(0x64);if(!(st&1))break;/* Never consume keyboard bytes as mouse data. */if(!(st&0x20))break;uint8_t d=inb(0x60);if(mouse_cycle==0){if(!(d&8))continue;mouse_packet[0]=d;mouse_cycle=1;}else if(mouse_cycle==1){mouse_packet[1]=d;mouse_cycle=2;}else{mouse_packet[2]=d;mouse_cycle=0;int dx=(int8_t)mouse_packet[1],dy=(int8_t)mouse_packet[2];cursor_move(mouse_x+dx*2,mouse_y-dy*2);int old_buttons=mouse_buttons;mouse_buttons=mouse_packet[0]&7;if((mouse_buttons&1)&&!(old_buttons&1))handle_mouse_click(mouse_x,mouse_y);}}}
+static void handle_mouse_click(int x,int y){
+ if(boot_screen){
+  uint32_t w=sw>760?680:sw-32,h=sh>560?430:sh-32,bx=(sw-w)/2,by=(sh-h)/2;
+  if(boot_screen==1){if(y>=(int)by+150&&y<(int)by+242)boot_screen=3;else if(y>=(int)by+244&&y<(int)by+340)boot_screen=2;}
+  else if(boot_screen==2){if(y>=(int)(by+h-82)&&x<(int)bx+180)boot_screen=1;else if(y>=(int)(by+h-82)&&x>(int)bx+(int)w-205)boot_screen=3;}
+  else if(boot_screen==3){uint32_t swid=sw>650?520:sw-32,sx=(sw-swid)/2,sy=(sh-370)/2;if(y>=(int)sy+310&&x>(int)sx+(int)swid-184)boot_screen=0;else return;}
+  cursor_hide();if(boot_screen==1)draw_welcome();else if(boot_screen==2)draw_installer();else if(boot_screen==3)draw_signin();else desktop();cursor_draw(mouse_x,mouse_y);return;
+ }
+ uint32_t ty=sh-48;
+ /* Start button toggles the real launcher panel. */
+ if(y>=(int)ty&&x>=10&&x<=48){launcher_open=!launcher_open;settings_open=0;cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;}
+ if(launcher_open){
+  uint32_t w=sw>900?520:(sw>620?sw-48:sw-24),h=sh>650?420:sh-140;
+  uint32_t lx=12,ly=sh-h-64;if(lx+w>sw-12)w=sw-24;
+  uint32_t cardw=(w-56)/3;if(cardw>150)cardw=150;uint32_t gap=12,sx=lx+20;
+  if(x>= (int)sx && y>=(int)ly+94 && y<(int)ly+94+2*(82+14)){
+   uint32_t col=(uint32_t)(x-(int)sx)/(cardw+gap),row=(uint32_t)(y-((int)ly+94))/(82+14);
+   if(col<3&&row<2){
+    uint32_t idx=row*3+col;
+    launcher_open=0;
+    if(idx==2||idx==5){settings_open=1;update_checked=0;}
+    cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;
+   }
+  }
+  if(x<(int)lx||x>(int)(lx+w)||y<(int)ly||y>(int)(ly+h))launcher_open=0;
+ }
+ uint32_t pw=sw>700?560:sw-40,px=(sw-pw)/2,py=100;
+ if(settings_open){
+  if(y>=(int)py&&y<(int)py+38&&x>=(int)(px+pw-42))settings_open=0;
+  else if(x>=(int)px+24&&x<(int)px+214&&y>=(int)py+140&&y<(int)py+178)update_checked=1;
+  else return;
+ }else{
+  uint32_t ww=sw>900?560:(sw>700?520:sw-110),wx=(sw-ww)/2,wy=(sh-220-58)/2;
+  if((x>=15&&x<=75&&y>=210&&y<=258)||(x>=200&&x<=238&&y>=(int)sh-41&&y<(int)sh-7))settings_open=1;
+  if(x>=(int)wx+322&&x<(int)wx+460&&y>=(int)wy+118&&y<(int)wy+176)settings_open=1;
+  if(!settings_open)return;
+  launcher_open=0;
+ }
+ cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);
+}
 static void draw_settings(void){uint32_t w=sw>700?560:sw-40,h=300,x=(sw-w)/2,y=100;window(x,y,w,h,"My Settings - Updates",0xFF805AD5);text(x+24,y+58,"System Updates",0xFFFFFFFF);text(x+24,y+82,"Installed version: development build",0xFFB7C3D0);text(x+24,y+104,"Release channel: stable (not connected)",0xFFB7C3D0);rect(x+24,y+140,190,38,0xFF2563EB);frame(x+24,y+140,190,38,0xFF60A5FA);text(x+38,y+155,"Check for Updates",0xFFFFFFFF);if(update_checked){text(x+24,y+198,"Online check is not available yet.",0xFFFBBF24);text(x+24,y+220,"Network, TLS and signed-manifest support",0xFFB7C3D0);text(x+24,y+238,"must be implemented before downloads.",0xFFB7C3D0);}else{text(x+24,y+198,"No update server is connected yet.",0xFFB7C3D0);text(x+24,y+220,"Updates will be verified before install.",0xFFB7C3D0);}text(x+24,y+270,"Esc = close  |  U = open update settings",0xFF6EE7B7);}
 
 /* Native first-run screens. Disk installation and secure authentication are not implemented. */
@@ -105,7 +170,48 @@ static void draw_installer(void){
  rect(x+32,y+h-72,128,38,0xFF263449);frame(x+32,y+h-72,128,38,0xFF536780);text(x+62,y+h-58,"Back",0xFFFFFFFF);
  rect(x+w-194,y+h-72,162,38,0xFF202A3A);frame(x+w-194,y+h-72,162,38,0xFF536780);text(x+w-174,y+h-58,"Try MyOS instead",0xFFFFFFFF);text(x+32,y+h-20,"ESC Back     T Try MyOS",0xFF6EE7B7);
 }
-static void desktop(void){rect(0,0,sw,sh,0xFF0B1020);rect(0,60,sw,sh-112,0xFF101827);rect(sw/2,60,sw/2,sh-112,0xFF111D31);rect(0,0,sw,60,0xFF171D29);line(0,59,sw,0xFF2D394C);rect(18,16,28,28,0xFF3B82F6);grid(23,20,0xFFFFFFFF);text(58,18,"MyOS",0xFFFFFFFF);text(58,34,"Native Desktop",0xFF8B98AB);if(sw>520){text(sw-305,23,"CPU",0xFF8B98AB);text(sw-265,23,"RAM",0xFF8B98AB);text(sw-215,23,"NET",0xFF8B98AB);text(sw-155,23,"LIVE",0xFF6EE7B7);}folder(34,92);text(30,120,"Files",0xFFE8EDF5);terminal(34,156);text(25,184,"Terminal",0xFFE8EDF5);settings(34,220);text(22,248,"Settings",0xFFE8EDF5);uint32_t w=sw>900?650:(sw>700?570:sw-120),h=330,x=(sw-w)/2,y=100;window(x,y,w,h,"Welcome to MyOS",0xFF3B82F6);text(x+34,y+70,"A native x86-64 desktop.",0xFFFFFFFF);text(x+34,y+94,"Mouse and keyboard input are now active.",0xFFB7C3D0);line(x+34,y+130,w-68,0xFF344155);text(x+34,y+154,"Quick access",0xFF8B98AB);rect(x+34,y+180,150,72,0xFF202A3A);folder(x+52,y+198);text(x+52,y+224,"Files",0xFFFFFFFF);rect(x+204,y+180,150,72,0xFF202A3A);terminal(x+222,y+198);text(x+222,y+224,"Terminal",0xFFFFFFFF);rect(x+374,y+180,150,72,0xFF202A3A);settings(x+392,y+198);text(x+392,y+224,"Settings",0xFFFFFFFF);text(x+34,y+286,"S = launcher   Esc = close   Left click = select",0xFF6EE7B7);uint32_t ty=sh-52;rect(0,ty,sw,52,0xFF171D29);line(0,ty,sw,0xFF303B4E);rect(14,ty+10,34,32,0xFF2563EB);grid(22,ty+16,0xFFFFFFFF);rect(62,ty+10,44,32,0xFF202A3A);folder(72,ty+15);rect(112,ty+10,44,32,0xFF202A3A);terminal(121,ty+15);rect(162,ty+10,44,32,0xFF202A3A);settings(171,ty+15);if(launcher_open)draw_launcher();if(settings_open)draw_settings();}
+static void desktop(void){
+ /* Cool blue Windows 11-inspired bloom wallpaper, rendered natively. */
+ rect(0,0,sw,sh,0xFF101827);
+ rect(0,0,sw/2,sh,0xFF111D31);
+ rect(sw/2,0,sw-sw/2,sh,0xFF17243A);
+ rect(sw/8,sh/8,sw*3/4,sh*3/4,0xFF14243B);
+ /* Soft geometric wallpaper bloom. */
+ rect(sw/3,sh/5,sw/3,sh/2,0xFF1B3658);
+ rect(sw/3+18,sh/5+18,sw/3-36,sh/2-36,0xFF172D4A);
+ rect(sw/3+36,sh/5+36,sw/3-72,sh/2-72,0xFF1D4165);
+ /* Desktop shortcuts aligned to the left. */
+ folder(28,32);text(20,62,"My Files",0xFFF1F5F9);
+ terminal(28,94);text(16,124,"Terminal",0xFFF1F5F9);
+ settings(28,156);text(13,186,"Settings",0xFFF1F5F9);
+ grid(28,218,0xFFB7C3D0);text(13,248,"My System",0xFFF1F5F9);
+ /* Lightweight welcome surface, not a fake app window. */
+ uint32_t w=sw>900?560:(sw>700?520:sw-110),h=220,x=(sw-w)/2,y=(sh-h-58)/2;
+ rect(x+7,y+7,w,h,0x44000000);rect(x,y,w,h,0xE61A2433);frame(x,y,w,h,0xFF35445C);
+ rect(x,y,w,4,0xFF60A5FA);
+ rect(x+22,y+22,36,36,0xFF3478F6);grid(x+31,y+31,0xFFFFFFFF);
+ text(x+72,y+24,"Welcome to MyOS",0xFFFFFFFF);
+ text(x+72,y+46,"A modern desktop, built from the kernel up.",0xFFB7C3D0);
+ line(x+22,y+76,w-44,0xFF35445C);
+ text(x+22,y+96,"Quick access",0xFF9EADC2);
+ rect(x+22,y+118,138,58,0xFF263247);folder(x+34,y+132);text(x+70,y+140,"My Files",0xFFFFFFFF);
+ rect(x+172,y+118,138,58,0xFF263247);terminal(x+184,y+135);text(x+220,y+140,"Terminal",0xFFFFFFFF);
+ rect(x+322,y+118,138,58,0xFF263247);settings(x+334,y+135);text(x+370,y+140,"Settings",0xFFFFFFFF);
+ text(x+22,y+h-22,"Press S to open Start   |   Esc to close",0xFF6EE7B7);
+ /* Windows-like taskbar, with the MyOS Start button at the left. */
+ uint32_t ty=sh-48;rect(0,ty,sw,48,0xE6171F2C);line(0,ty,sw,0xFF3A465A);
+ rect(10,ty+7,38,34,launcher_open?0xFF315A91:0xFF26364D);frame(10,ty+7,38,34,0xFF49617F);grid(20,ty+17,0xFFFFFFFF);
+ text(56,ty+18,"MyOS",0xFFFFFFFF);
+ rect(112,ty+7,38,34,0xFF202A3A);folder(118,ty+13);
+ rect(156,ty+7,38,34,0xFF202A3A);terminal(162,ty+13);
+ rect(200,ty+7,38,34,0xFF202A3A);settings(206,ty+13);
+ /* Tray and clock */
+ rect(sw-142,ty+7,132,34,0xFF202A3A);
+ text(sw-130,ty+18,"NET  |  VOL",0xFFB7C3D0);
+ if(sw>520){char clockbuf[16];clockbuf[0]='0'+((mouse_cycle/3600)%10);clockbuf[1]='0'+((mouse_cycle/60)%10);clockbuf[2]=':';clockbuf[3]='0'+((mouse_cycle/10)%6);clockbuf[4]='0'+(mouse_cycle%10);clockbuf[5]='\\0';}
+ if(launcher_open)draw_launcher();
+ if(settings_open)draw_settings();
+}
 static void handle_mouse_click(int x,int y){
  if(boot_screen){
   uint32_t w=sw>760?680:sw-32,h=sh>560?430:sh-32,bx=(sw-w)/2,by=(sh-h)/2;
