@@ -1,0 +1,111 @@
+name: Release MyOS Update
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, e.g. 0.1.0 (manual runs do not publish unless a matching tag exists)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm grub-pc-bin grub-efi-amd64-bin grub-common xorriso mtools gcc binutils make
+
+      - name: Build bootable image
+        working-directory: MyOS/core
+        run: |
+          chmod +x build.sh
+          ./build.sh
+          test -s MyOS.iso
+          sha256sum MyOS.iso > MyOS.iso.sha256
+
+      - name: Create update manifest
+        env:
+          VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+          REPOSITORY: ${{ github.repository }}
+          SERVER_URL: ${{ github.server_url }}
+        run: |
+          mkdir -p dist
+          cp MyOS/core/MyOS.iso dist/MyOS.iso
+          cp MyOS/core/MyOS.iso.sha256 dist/MyOS.iso.sha256
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          version = os.environ["VERSION"]
+          repo = os.environ["REPOSITORY"]
+          server = os.environ["SERVER_URL"]
+          image = Path("dist/MyOS.iso")
+          digest = hashlib.sha256(image.read_bytes()).hexdigest()
+          tag = version if version.startswith("v") else "v" + version
+          manifest = {
+              "product": "MyOS",
+              "version": version.removeprefix("v"),
+              "tag": tag,
+              "channel": "stable",
+              "architecture": "x86_64",
+              "artifact": "MyOS.iso",
+              "size_bytes": image.stat().st_size,
+              "sha256": digest,
+              "download_url": f"{server}/{repo}/releases/download/{tag}/MyOS.iso",
+              "checksum_url": f"{server}/{repo}/releases/download/{tag}/MyOS.iso.sha256",
+              "release_url": f"{server}/{repo}/releases/tag/{tag}",
+              "notes": "MyOS stable release",
+              "install_mode": "manual",
+              "automatic_install_supported": False
+          }
+          Path("dist/latest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          PY
+
+      - name: Verify release SHA-256
+        run: |
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          image = Path("dist/MyOS.iso")
+          manifest = json.loads(Path("dist/latest.json").read_text())
+          checksum_line = Path("dist/MyOS.iso.sha256").read_text().strip().split()
+          if not checksum_line or len(checksum_line[0]) != 64:
+              raise SystemExit("Invalid SHA-256 checksum file")
+          actual = hashlib.sha256(image.read_bytes()).hexdigest()
+          if actual != checksum_line[0]:
+              raise SystemExit("SHA-256 file does not match MyOS.iso")
+          if actual != manifest.get("sha256"):
+              raise SystemExit("Manifest SHA-256 does not match MyOS.iso")
+          if manifest.get("size_bytes") != image.stat().st_size:
+              raise SystemExit("Manifest size does not match MyOS.iso")
+          print(f"SHA-256 verified: {actual}")
+          PY
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            dist/MyOS.iso dist/MyOS.iso.sha256 dist/latest.json \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "MyOS ${GITHUB_REF_NAME}" \
+            --generate-notes
+
+      - name: Upload artifacts for manual workflow runs
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyOS-update-preview
+          path: dist/*
+          if-no-files-found: error
