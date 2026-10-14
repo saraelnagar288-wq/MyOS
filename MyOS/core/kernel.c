@@ -199,11 +199,13 @@ static void handle_mouse_click(int x,int y){
   cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;
  }
  if((x>=15&&x<=75&&y>=85&&y<=140)||(x>=34&&x<=72&&y>=150&&y<=205)){
-  files_open=(x>=15&&x<=75&&y>=85&&y<=140);terminal_open=!files_open;settings_open=0;launcher_open=0;
+  if(x>=15&&x<=75&&y>=85&&y<=140){files_open=1;active_app=1;}
+  else{terminal_open=1;active_app=2;}
+  launcher_open=0;
   cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;
  }
  if(x>=18&&x<=66&&y>=210&&y<=260){
-  files_open=terminal_open=0;settings_open=1;launcher_open=0;cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;
+  settings_open=1;active_app=3;launcher_open=0;cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;
  }
  uint32_t ww=sw>900?650:(sw>700?570:sw-120),wx=(sw-ww)/2,wy=100;
  if(x>=(int)wx+34&&x<(int)wx+184&&y>=(int)wy+180&&y<(int)wy+252){files_open=1;active_app=1;launcher_open=0;}
