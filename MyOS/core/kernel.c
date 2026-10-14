@@ -11,7 +11,7 @@ struct multiboot_info {
  uint8_t framebuffer_bpp,framebuffer_type,color_info[6];
 } __attribute__((packed));
 
-static uint32_t *fb; static uint32_t pitch,sw,sh; static uint8_t launcher_open,settings_open,update_checked,boot_screen=1,launcher_progress=100;
+static uint32_t *fb; static uint32_t pitch,sw,sh; static uint8_t launcher_open,settings_open,update_checked,boot_screen=1,launcher_progress=100,active_app;
 
 static void outb(uint16_t p,uint8_t v){__asm__ volatile("outb %0,%1"::"a"(v),"Nd"(p));}
 static uint8_t inb(uint16_t p){uint8_t v;__asm__ volatile("inb %1,%0":"=a"(v):"Nd"(p));return v;}
@@ -94,6 +94,17 @@ static void handle_mouse_click(int x,int y);
 static void mouse_poll(void){for(;;){uint8_t st=inb(0x64);if(!(st&1))break;/* Never consume keyboard bytes as mouse data. */if(!(st&0x20))break;uint8_t d=inb(0x60);if(mouse_cycle==0){if(!(d&8))continue;mouse_packet[0]=d;mouse_cycle=1;}else if(mouse_cycle==1){mouse_packet[1]=d;mouse_cycle=2;}else{mouse_packet[2]=d;mouse_cycle=0;int dx=(int8_t)mouse_packet[1],dy=(int8_t)mouse_packet[2];cursor_move(mouse_x+dx*2,mouse_y-dy*2);int old_buttons=mouse_buttons;mouse_buttons=mouse_packet[0]&7;if((mouse_buttons&1)&&!(old_buttons&1))handle_mouse_click(mouse_x,mouse_y);}}}
 static void draw_settings(void){uint32_t w=sw>700?560:sw-40,h=300,x=(sw-w)/2,y=100;window(x,y,w,h,"My Settings - Updates",0xFF805AD5);text(x+24,y+58,"System Updates",0xFFFFFFFF);text(x+24,y+82,"Installed version: development build",0xFFB7C3D0);text(x+24,y+104,"Release channel: stable (not connected)",0xFFB7C3D0);rect(x+24,y+140,190,38,0xFF2563EB);frame(x+24,y+140,190,38,0xFF60A5FA);text(x+38,y+155,"Check for Updates",0xFFFFFFFF);if(update_checked){text(x+24,y+198,"Online check is not available yet.",0xFFFBBF24);text(x+24,y+220,"Network, TLS and signed-manifest support",0xFFB7C3D0);text(x+24,y+238,"must be implemented before downloads.",0xFFB7C3D0);}else{text(x+24,y+198,"No update server is connected yet.",0xFFB7C3D0);text(x+24,y+220,"Updates will be verified before install.",0xFFB7C3D0);}text(x+24,y+270,"Esc = close  |  U = open update settings",0xFF6EE7B7);}
 
+static void number_text(uint32_t x,uint32_t y,uint64_t value,uint32_t color){char b[21];uint32_t n=0;if(value==0){ch(x,y,'0',color);return;}while(value&&n<20){b[n++]=(char)('0'+value%10);value/=10;}while(n){ch(x,y,(unsigned char)b[--n],color);x+=8;}}
+static void hex64(uint32_t x,uint32_t y,uint64_t value,uint32_t color){static const char d[]="0123456789ABCDEF";text(x,y,"0x",color);x+=16;for(int i=15;i>=0;i--){ch(x,y,d[(value>>(i*4))&15],color);x+=8;}}
+static void draw_app_window(void){
+ if(!active_app)return;
+ uint32_t w=sw>760?600:sw-32,h=sh>600?350:sh-100,x=(sw-w)/2,y=(sh-h-48)/2;
+ if(active_app==1){window(x,y,w,h,"My Files - Storage status",0xFF3B82F6);text(x+24,y+62,"My Files",0xFFFFFFFF);text(x+24,y+90,"Filesystem driver unavailable in this build.",0xFFFBBF24);text(x+24,y+116,"No files or disks have been changed.",0xFFB7C3D0);text(x+24,y+154,"Next: filesystem and block-device drivers.",0xFFB7C3D0);}
+ else if(active_app==2){window(x,y,w,h,"Terminal - MyOS",0xFF0F766E);text(x+24,y+62,"MyOS diagnostic console",0xFFFFFFFF);text(x+24,y+92,"Kernel status: running",0xFF6EE7B7);text(x+24,y+120,"Command input is not implemented yet.",0xFFFBBF24);text(x+24,y+158,"This is a diagnostic window, not a shell.",0xFFB7C3D0);}
+ else if(active_app==3){struct myos_memory_stats ms;memory_stats(&ms);window(x,y,w,h,"Task Manager - Kernel",0xFF2563EB);text(x+24,y+62,"System activity",0xFFFFFFFF);text(x+24,y+92,"Kernel loop: active",0xFF6EE7B7);text(x+24,y+116,"Scheduler: not implemented",0xFFFBBF24);text(x+24,y+148,"Heap start:",0xFFB7C3D0);hex64(x+150,y+148,ms.heap_start,0xFFFFFFFF);text(x+24,y+172,"Heap end:",0xFFB7C3D0);hex64(x+150,y+172,ms.heap_end,0xFFFFFFFF);text(x+24,y+196,"Next allocation:",0xFFB7C3D0);hex64(x+150,y+196,ms.next_free,0xFFFFFFFF);}
+ else if(active_app==4){struct myos_memory_stats ms;memory_stats(&ms);window(x,y,w,h,"My System - System information",0xFFB45309);text(x+24,y+62,"MyOS x86-64 kernel",0xFFFFFFFF);text(x+24,y+92,"Framebuffer: active",0xFF6EE7B7);text(x+24,y+116,"Resolution:",0xFFB7C3D0);number_text(x+130,y+116,sw,0xFFFFFFFF);text(x+190,y+116,"x",0xFFB7C3D0);number_text(x+206,y+116,sh,0xFFFFFFFF);text(x+24,y+148,"Reported memory (bytes):",0xFFB7C3D0);hex64(x+230,y+148,ms.total_bytes,0xFFFFFFFF);text(x+24,y+180,"Heap free (bytes):",0xFFB7C3D0);hex64(x+190,y+180,ms.heap_end-ms.next_free,0xFFFFFFFF);}
+ text(x+24,y+h-30,"ESC closes this window",0xFF6EE7B7);
+}
 /* Native first-run screens. Disk installation and secure authentication are not implemented. */
 static void draw_welcome(void){
  uint32_t w=sw>760?680:sw-32,h=sh>560?430:sh-32,x=(sw-w)/2,y=(sh-h)/2;
@@ -146,6 +157,7 @@ static void desktop(void){
  rect(sw-142,ty+7,132,34,0xFF202A3A);text(sw-130,ty+18,"NET  |  VOL",0xFFB7C3D0);
  if(launcher_open) draw_launcher();
  if(settings_open) draw_settings();
+ if(active_app) draw_app_window();
 }
 static void animate_launcher(uint8_t open){
  if(open){launcher_open=1;settings_open=0;launcher_progress=0;
@@ -173,7 +185,7 @@ static void handle_mouse_click(int x,int y){
   uint32_t cardw=(w-56)/3;if(cardw>150)cardw=150;uint32_t gap=12,sx=lx+20;
   if(x>=(int)sx&&y>=(int)ly+94&&y<(int)ly+94+2*(82+14)){
    uint32_t col=(uint32_t)(x-(int)sx)/(cardw+gap),row=(uint32_t)(y-((int)ly+94))/(82+14);
-   if(col<3&&row<2){uint32_t idx=row*3+col;launcher_open=0;if(idx==2||idx==5){settings_open=1;update_checked=0;}cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;}
+   if(col<3&&row<2){uint32_t idx=row*3+col;launcher_open=0;settings_open=0;active_app=0;if(idx==0)active_app=1;else if(idx==1)active_app=2;else if(idx==2){settings_open=1;update_checked=0;}else if(idx==3)active_app=3;else if(idx==4)active_app=4;else if(idx==5){settings_open=1;update_checked=0;}cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;}
   }
   if(x<(int)lx||x>(int)(lx+w)||y<(int)ly||y>(int)(ly+h))launcher_open=0;
  }
@@ -199,7 +211,7 @@ static void input(void){
   cursor_hide();if(boot_screen==1)draw_welcome();else if(boot_screen==2)draw_installer();else if(boot_screen==3)draw_signin();else desktop();cursor_draw(mouse_x,mouse_y);return;
  }
  if(s==0x1F){animate_launcher(1);}
- if(s==0x01){if(launcher_open)animate_launcher(0);else{cursor_hide();settings_open=0;desktop();cursor_draw(mouse_x,mouse_y);}}
- if(s==0x16){cursor_hide();settings_open=1;launcher_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
+ if(s==0x01){if(launcher_open)animate_launcher(0);else{cursor_hide();settings_open=0;active_app=0;desktop();cursor_draw(mouse_x,mouse_y);}}
+ if(s==0x16){cursor_hide();settings_open=1;active_app=0;launcher_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
 }
 void kernel_main(uint64_t magic,struct multiboot_info*mb){serial_init();serial_puts("MyOS: kernel start\r\n");if((uint32_t)magic!=MULTIBOOT_MAGIC||!mb){vga_msg("MyOS: invalid Multiboot data",0x4F);halt();}if(!(mb->flags&FB_FLAG)||!mb->framebuffer_addr||mb->framebuffer_bpp!=32||!mb->framebuffer_pitch){vga_msg("MyOS: framebuffer unavailable",0x4E);halt();}fb=(uint32_t*)(uintptr_t)mb->framebuffer_addr;pitch=mb->framebuffer_pitch;sw=mb->framebuffer_width;sh=mb->framebuffer_height;if(sw<320||sh<200){vga_msg("MyOS: invalid framebuffer size",0x4E);halt();}memory_init(mb->mem_upper);{struct myos_memory_stats ms;memory_stats(&ms);serial_puts("MyOS: memory manager online\r\n");if(ms.heap_end>ms.heap_start)serial_puts("MyOS: kernel heap available\r\n");else serial_puts("MyOS: kernel heap unavailable\r\n");}mouse_x=(int)sw/2;mouse_y=(int)sh/2;draw_welcome();mouse_init();cursor_draw(mouse_x,mouse_y);serial_puts("MyOS: first-run welcome screen ready\r\n");for(;;){input();mouse_poll();__asm__ volatile("pause");}}
