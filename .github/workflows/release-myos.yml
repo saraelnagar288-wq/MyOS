@@ -91,6 +91,9 @@ jobs:
           print(f"SHA-256 verified: {actual}")
           PY
 
+      - name: Run shared manifest verifier
+        run: python3 update-server/verify_manifest.py dist/latest.json dist/MyOS.iso --checksum dist/MyOS.iso.sha256
+
       - name: Publish GitHub Release
         if: github.ref_type == 'tag'
         env:
