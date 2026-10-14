@@ -14,6 +14,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Test update manifest verifier
+        run: python3 -m unittest discover -s update-server/tests -v
+
       - name: Install OS toolchain
         run: |
           sudo apt-get update
