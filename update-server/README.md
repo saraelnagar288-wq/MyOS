@@ -1,36 +1,50 @@
-# MyOS Updates: release pipeline and staged updater plan
+# MyOS Update Server and release manifest
 
-## What this PR implements
+## Current scope
 
-- A native **My Settings → System Updates** screen in the framebuffer desktop.
-- A clickable **Check for Updates** control and keyboard shortcut **U** to open the screen.
-- A release workflow that builds `MyOS.iso` and publishes `MyOS.iso`, `MyOS.iso.sha256`, and `latest.json` for version tags such as `v0.1.0`.
-- A clear status message: the in-OS online check is not implemented yet. The UI does not claim that it downloaded or installed anything.
+The update center in the kernel is a UI placeholder. This repository currently builds release assets and a metadata manifest; it does **not** provide a running HTTP update server, an in-OS network client, TLS, signature verification, disk installation, or rollback. The kernel must continue to report online checking as unavailable and automatic installation as disabled.
 
-## Build and publish a release
+## Release pipeline
 
-1. Confirm the build workflow passes on the branch to be released.
+For a stable release, use a tag such as `v0.2.0`:
+
+1. Confirm the **Build MyOS** workflow passes.
 2. Merge the reviewed changes to the default branch.
-3. Create and push a version tag, e.g. `git tag v0.1.0 && git push origin v0.1.0`.
-4. Verify the **Release MyOS Update** workflow and inspect all three release assets.
+3. Push a stable semantic-version tag: `git tag v0.2.0 && git push origin v0.2.0`.
+4. Verify **Release MyOS Update** completes and inspect `MyOS.iso`, `MyOS.iso.sha256`, and `latest.json` in the GitHub Release.
 
-A manual workflow run builds preview artifacts only; it does not publish a release unless triggered by a version tag. The workflow uses GitHub's built-in token, not a personal access token.
+A manual workflow run creates preview artifacts only. It does not publish a release. The workflow uses GitHub's built-in token; never embed a personal access token or any other secret in the ISO or repository source.
 
-## Manifest contract
+## Manifest validation
 
-`latest.json` includes the product, version/tag, stable channel, x86_64 architecture, artifact name, file size, SHA-256 digest, download/release URLs, and an explicit `automatic_install_supported: false` flag.
+`manifest.py` creates and validates `latest.json`. It checks stable version syntax, product/channel/architecture/artifact fields, HTTPS URLs, ISO size, and the SHA-256 value against both the checksum file and the actual image. The manifest explicitly sets `install_mode: manual` and `automatic_install_supported: false`.
 
-## Required before a real in-OS update
+Local validation example (after building the ISO):
 
-The current MyOS kernel does not yet have a network stack/TLS client, an authenticated update endpoint, a filesystem-backed updater, or a verified A/B boot/rollback mechanism. This PR therefore does **not** download or install an update from inside MyOS.
+```sh
+sha256sum MyOS/core/MyOS.iso > MyOS/core/MyOS.iso.sha256
+python3 update-server/manifest.py create \
+  --image MyOS/core/MyOS.iso \
+  --checksum MyOS/core/MyOS.iso.sha256 \
+  --version 0.2.0 \
+  --repository OWNER/REPOSITORY \
+  --server-url https://github.com \
+  --output dist/latest.json
+python3 update-server/manifest.py validate \
+  --manifest dist/latest.json \
+  --image MyOS/core/MyOS.iso \
+  --checksum MyOS/core/MyOS.iso.sha256
+```
 
-Before enabling online updates:
-1. Decide on a public metadata/artifact endpoint or a proper authenticated service. This repository is private; a MyOS image must never contain a personal access token.
-2. Sign release metadata (e.g. Ed25519) and pin the verification public key in MyOS. SHA-256 alone only detects corruption; it does not authenticate the publisher.
-3. Implement and test networking/TLS and a downloader with strict size/hash/signature checks.
-4. Design A/B system slots and automatic rollback if the new slot fails to boot.
-5. Test failure cases in QEMU before exposing any install action. Never write to a user's disk automatically.
+## Important access and security limits
 
-## Cursor change
+- This repository is private. Standard GitHub Release URLs may require authentication; they are not a public update endpoint. Before an in-OS client is built, choose either a deliberately public release/metadata host or a properly authenticated service. Do not put a GitHub token in MyOS.
+- SHA-256 detects accidental corruption but does **not** authenticate the publisher. Before downloads are trusted, sign metadata (for example with Ed25519), keep the signing private key outside the repository and CI logs, and pin the verification public key in MyOS.
+- Implement and test networking/TLS, strict download-size limits, signature/hash checks, and failure handling.
+- Design A/B system slots and verified rollback before enabling installation.
+- Test invalid versions, malformed manifests, incorrect checksums, interrupted downloads, and failed boots in QEMU.
+- Never write to a user's disk automatically. Keep installation disabled until disk detection, partitioning, file copying, and recovery have been implemented and tested.
 
-This branch is based on the Windows-style cursor/smoother PS/2 polling change from PR #5, so the cursor work is included in the proposed combined changeset. Both UI and mouse behavior still need a successful build and QEMU movement/click test before merging.
+## What this change does not claim
+
+Passing manifest validation only proves that the generated metadata agrees with the release ISO and checksum. It does not mean an online update server, signed metadata, or an in-OS updater is live.
