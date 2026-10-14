@@ -11,7 +11,7 @@ struct multiboot_info {
  uint8_t framebuffer_bpp,framebuffer_type,color_info[6];
 } __attribute__((packed));
 
-static uint32_t *fb; static uint32_t pitch,sw,sh; static uint8_t launcher_open,settings_open,update_checked,boot_screen=1;
+static uint32_t *fb; static uint32_t pitch,sw,sh; static uint8_t launcher_open,settings_open,update_checked,boot_screen=1,launcher_progress=100;
 
 static void outb(uint16_t p,uint8_t v){__asm__ volatile("outb %0,%1"::"a"(v),"Nd"(p));}
 static uint8_t inb(uint16_t p){uint8_t v;__asm__ volatile("inb %1,%0":"=a"(v):"Nd"(p));return v;}
@@ -37,7 +37,7 @@ static void window(uint32_t x,uint32_t y,uint32_t w,uint32_t h,const char*t,uint
 static void draw_launcher(void){
  /* Windows 11-inspired Start panel, anchored beside the MyOS taskbar button. */
  uint32_t w=sw>900?520:(sw>620?sw-48:sw-24),h=sh>650?420:sh-140;
- uint32_t x=12,y=sh-h-64;if(x+w>sw-12)w=sw-24;
+ uint32_t x=12,y=sh-h-64+((100-launcher_progress)*(h+16))/100;if(x+w>sw-12)w=sw-24;
  rect(x+6,y+6,w,h,0x44000000);rect(x,y,w,h,0xF01B2433);frame(x,y,w,h,0xFF3B4A60);
  rect(x+16,y+14,w-32,36,0xFF263247);frame(x+16,y+14,w-32,36,0xFF35445C);
  text(x+30,y+27,"Search apps, settings and files",0xFF9EADC2);
@@ -147,6 +147,16 @@ static void desktop(void){
  if(launcher_open) draw_launcher();
  if(settings_open) draw_settings();
 }
+static void animate_launcher(uint8_t open){
+ if(open){launcher_open=1;settings_open=0;launcher_progress=0;
+  for(uint32_t p=0;p<=100;p+=20){launcher_progress=(uint8_t)p;cursor_hide();desktop();for(volatile uint32_t d=0;d<18000;d++)__asm__ volatile("pause");}
+ }else{
+  if(!launcher_open)return;
+  for(int p=100;p>=0;p-=20){launcher_progress=(uint8_t)p;cursor_hide();desktop();for(volatile uint32_t d=0;d<18000;d++)__asm__ volatile("pause");}
+  launcher_open=0;launcher_progress=100;
+ }
+ cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);
+}
 static void handle_mouse_click(int x,int y){
  if(boot_screen){
   uint32_t w=sw>760?680:sw-32,h=sh>560?430:sh-32,bx=(sw-w)/2,by=(sh-h)/2;
@@ -156,7 +166,7 @@ static void handle_mouse_click(int x,int y){
   cursor_hide();if(boot_screen==1)draw_welcome();else if(boot_screen==2)draw_installer();else if(boot_screen==3)draw_signin();else desktop();cursor_draw(mouse_x,mouse_y);return;
  }
  uint32_t ty=sh-48;
- if(y>=(int)ty&&x>=10&&x<=48){launcher_open=!launcher_open;settings_open=0;cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);return;}
+ if(y>=(int)ty&&x>=10&&x<=48){animate_launcher((uint8_t)!launcher_open);return;}
  if(launcher_open){
   uint32_t w=sw>900?520:(sw>620?sw-48:sw-24),h=sh>650?420:sh-140,lx=12,ly=sh-h-64;
   if(lx+w>sw-12)w=sw-24;
@@ -188,8 +198,8 @@ static void input(void){
   else if(boot_screen==3){if(s==0x1C)boot_screen=0;else if(s==0x01)boot_screen=1;}
   cursor_hide();if(boot_screen==1)draw_welcome();else if(boot_screen==2)draw_installer();else if(boot_screen==3)draw_signin();else desktop();cursor_draw(mouse_x,mouse_y);return;
  }
- if(s==0x1F){cursor_hide();launcher_open=1;settings_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
- if(s==0x01){cursor_hide();launcher_open=0;settings_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
+ if(s==0x1F){animate_launcher(1);}
+ if(s==0x01){if(launcher_open)animate_launcher(0);else{cursor_hide();settings_open=0;desktop();cursor_draw(mouse_x,mouse_y);}}
  if(s==0x16){cursor_hide();settings_open=1;launcher_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
 }
 void kernel_main(uint64_t magic,struct multiboot_info*mb){serial_init();serial_puts("MyOS: kernel start\r\n");if((uint32_t)magic!=MULTIBOOT_MAGIC||!mb){vga_msg("MyOS: invalid Multiboot data",0x4F);halt();}if(!(mb->flags&FB_FLAG)||!mb->framebuffer_addr||mb->framebuffer_bpp!=32||!mb->framebuffer_pitch){vga_msg("MyOS: framebuffer unavailable",0x4E);halt();}fb=(uint32_t*)(uintptr_t)mb->framebuffer_addr;pitch=mb->framebuffer_pitch;sw=mb->framebuffer_width;sh=mb->framebuffer_height;if(sw<320||sh<200){vga_msg("MyOS: invalid framebuffer size",0x4E);halt();}memory_init(mb->mem_upper);{struct myos_memory_stats ms;memory_stats(&ms);serial_puts("MyOS: memory manager online\r\n");if(ms.heap_end>ms.heap_start)serial_puts("MyOS: kernel heap available\r\n");else serial_puts("MyOS: kernel heap unavailable\r\n");}mouse_x=(int)sw/2;mouse_y=(int)sh/2;draw_welcome();mouse_init();cursor_draw(mouse_x,mouse_y);serial_puts("MyOS: first-run welcome screen ready\r\n");for(;;){input();mouse_poll();__asm__ volatile("pause");}}
