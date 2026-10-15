@@ -34,3 +34,9 @@ Before enabling online updates:
 ## Cursor change
 
 This branch is based on the Windows-style cursor/smoother PS/2 polling change from PR #5, so the cursor work is included in the proposed combined changeset. Both UI and mouse behavior still need a successful build and QEMU movement/click test before merging.
+
+## Current network bring-up milestone
+
+The `feature/update-check-network-foundation` branch adds PCI enumeration for the QEMU Intel 82540EM E1000 (8086:100E), logs whether that adapter is detected, and attaches an emulated E1000 NIC to the QEMU `run` target and CI boot smoke tests. The Settings button now reports hardware-detection status instead of implying that a remote check happened.
+
+**This is not yet an online update check.** There is still no E1000 transmit/receive ring driver, ARP/DHCP/IPv4/TCP stack, DNS, HTTPS/TLS, or signed manifest verification. The UI explicitly reports that TCP/IP and HTTPS/TLS are still needed; it must not claim “up to date” or “update available” until a real HTTPS response has been verified. No ISO is downloaded by clicking Check for Updates.
