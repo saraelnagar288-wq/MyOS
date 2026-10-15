@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07100e">
+<meta name="description" content="حمّل MyOS — نظام تشغيل تجريبي مستقل بمعمارية x86-64. تابع الإصدارات وملفات ISO والتحقق من SHA-256.">
+<title>MyOS — Download Center</title>
+<style>
+:root{color-scheme:dark;--bg:#07100e;--panel:#0d1916;--line:#1d342b;--text:#eef8f2;--muted:#9ab1a5;--green:#7af0ad;--green2:#38c980;--gold:#ffd27d}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(ellipse at 78% 4%,#173c2b 0,transparent 38%),radial-gradient(ellipse at 8% 40%,#11251f 0,transparent 35%),var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;line-height:1.65}
+a{color:inherit;text-decoration:none}.wrap{width:min(1120px,calc(100% - 40px));margin:auto}.nav{height:82px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffffff12}.brand{display:flex;align-items:center;gap:12px;font-weight:800;font-size:1.18rem;letter-spacing:-.04em}.logo{width:42px;height:42px;border-radius:14px;background:linear-gradient(140deg,var(--green),#1d9662);display:grid;place-items:center;color:#062015;box-shadow:0 0 28px #53e79b25}.logo svg{width:25px}.navlinks{display:flex;gap:26px;color:var(--muted);font-size:.92rem}.navlinks a:hover{color:var(--green)}.pill{border:1px solid #2e5542;border-radius:999px;padding:7px 13px;color:var(--green);font-size:.82rem;display:inline-flex;gap:8px;align-items:center}.dot{width:7px;height:7px;background:var(--green);border-radius:50%;box-shadow:0 0 12px var(--green)}
+.hero{padding:84px 0 58px;display:grid;grid-template-columns:1.15fr .85fr;gap:52px;align-items:center}.eyebrow{color:var(--green);font-size:.86rem;font-weight:700;letter-spacing:.04em;display:flex;gap:10px;align-items:center}.hero h1{font-size:clamp(3rem,7vw,5.8rem);letter-spacing:-.075em;line-height:.98;margin:22px 0}.hero h1 span{color:var(--green)}.hero p{font-size:1.08rem;color:var(--muted);max-width:590px;margin:22px 0 30px}.actions{display:flex;gap:12px;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;border:1px solid transparent;border-radius:13px;padding:13px 19px;font-weight:750;cursor:pointer;transition:.2s;font:inherit;font-weight:750}.btn:hover{transform:translateY(-2px)}.primary{background:var(--green);color:#06180f;box-shadow:0 8px 35px #55e69a20}.secondary{border-color:#345345;background:#0d1c16;color:var(--text)}.btn svg{width:19px;height:19px}.fine{font-size:.8rem!important;margin-top:16px!important}.visual{position:relative;min-height:365px;display:grid;place-items:center}.orb{width:min(330px,75vw);aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 34% 25%,#3d9c6b,#133c2a 48%,#091b13 72%);border:1px solid #80efad38;box-shadow:inset 0 0 55px #0008,0 0 90px #40d98b18;display:grid;place-items:center;position:relative}.orb:before,.orb:after{content:"";position:absolute;border:1px solid #8af6b529;border-radius:50%;inset:-24px}.orb:after{inset:-48px;border-color:#8af6b514}.osmark{font-size:5.5rem;font-weight:900;letter-spacing:-.12em;color:#c9ffdb;text-shadow:0 0 40px #70f5a76b}.float-card{position:absolute;bottom:25px;right:0;background:#0b1713dd;border:1px solid var(--line);padding:14px 17px;border-radius:15px;backdrop-filter:blur(12px);box-shadow:0 15px 40px #0003}.float-card strong{display:block;font-size:.95rem}.float-card small{color:var(--muted)}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:0 0 76px}.stat{padding:18px 20px;background:#0b1713b8;border:1px solid #ffffff10;border-radius:16px}.stat strong{display:block;font-size:1.05rem}.stat span{color:var(--muted);font-size:.86rem}
+section{scroll-margin-top:25px}.section-head{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:22px}.section-head h2{font-size:2rem;letter-spacing:-.04em;margin:0}.section-head p{color:var(--muted);margin:5px 0 0}.download-card{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;padding:28px;border:1px solid #2b4d3d;background:linear-gradient(130deg,#10241a,#0a1511);border-radius:22px;box-shadow:0 20px 70px #0002}.file-title{display:flex;gap:15px;align-items:center}.file-icon{width:54px;height:60px;border-radius:12px;background:#163c29;color:var(--green);display:grid;place-items:center}.file-icon svg{width:27px}.file-title h3{margin:0;font-size:1.18rem}.file-title p{margin:3px 0;color:var(--muted);font-size:.88rem}.meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:17px}.tag{font-size:.78rem;border:1px solid #294536;border-radius:8px;padding:4px 9px;color:#c5d8cd}.status{margin-top:19px;color:var(--muted);font-size:.9rem}.status b{color:var(--green)}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:18px 0 76px}.feature{padding:23px;border:1px solid #ffffff10;background:#0b1713a6;border-radius:17px}.feature .ico{width:42px;height:42px;border-radius:12px;background:#173b29;color:var(--green);display:grid;place-items:center}.feature h3{margin:15px 0 5px}.feature p{color:var(--muted);font-size:.9rem;margin:0}.notice{border:1px solid #6a5129;background:#211a0d8c;padding:18px 20px;border-radius:14px;color:#f0dfbb;margin:22px 0 75px;font-size:.9rem}.notice strong{color:var(--gold)}.faq{border-top:1px solid #ffffff14}.faq details{padding:17px 0;border-bottom:1px solid #ffffff14}.faq summary{cursor:pointer;font-weight:700}.faq p{color:var(--muted);margin-bottom:0}.footer{border-top:1px solid #ffffff12;padding:28px 0 40px;color:var(--muted);font-size:.85rem;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}.footer a{color:var(--green)}.tiny{font-size:.78rem;color:var(--muted)}
+@media(max-width:780px){.hero{grid-template-columns:1fr;padding-top:60px;gap:15px}.visual{min-height:290px}.orb{width:230px}.osmark{font-size:4rem}.stats{grid-template-columns:1fr}.download-card{grid-template-columns:1fr}.download-card .btn{width:100%}.grid{grid-template-columns:1fr}.navlinks{gap:13px}.navlinks a:nth-child(2){display:none}.section-head{align-items:start;flex-direction:column}.float-card{right:4px;bottom:8px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+</style>
+</head>
+<body>
+<header class="wrap nav">
+<a class="brand" href="#" aria-label="MyOS الرئيسية"><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg></span>MyOS <span class="tiny">DOWNLOAD CENTER</span></a>
+<nav class="navlinks"><a href="#download">التنزيل</a><a href="#features">المميزات</a><a href="#help">المساعدة</a><a href="https://github.com/saraelnagar288-wq/MyOS" target="_blank" rel="noreferrer">GitHub ↗</a></nav>
+</header>
+<main class="wrap">
+<section class="hero">
+<div><div class="eyebrow"><span class="dot"></span> نظام تشغيل مستقل • x86-64</div>
+<h1>قابل <span>MyOS.</span><br>ابدأ من هنا.</h1>
+<p>مركز تنزيل MyOS الرسمي — تابع أحدث إصدارات ISO، نزّل ملفات البناء المتاحة، وتحقق من سلامة الملف قبل تجربته.</p>
+<div class="actions"><a class="btn primary" href="#download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5M12 15V3"/></svg> تنزيل ملف ISO <span>↓</span></a><a class="btn secondary" href="https://github.com/saraelnagar288-wq/MyOS/actions" target="_blank" rel="noreferrer">عرض آخر عمليات البناء ↗</a></div>
+<p class="fine">نسخة تجريبية قيد التطوير — يُنصح بالتجربة داخل Hyper-V أو QEMU أولًا.</p></div>
+<div class="visual" aria-hidden="true"><div class="orb"><div class="osmark">MyOS</div></div><div class="float-card"><strong>Built for exploration</strong><small>Kernel • x86-64 • ISO</small></div></div>
+</section>
+<div class="stats"><div class="stat"><strong>64-bit</strong><span>معمارية x86-64</span></div><div class="stat"><strong>ISO</strong><span>ملف قابل للإقلاع عند توفر البناء</span></div><div class="stat"><strong>Open development</strong><span>التطوير ومتابعة التغييرات على GitHub</span></div></div>
+<section id="download">
+<div class="section-head"><div><h2>التنزيلات</h2><p>يتم التحقق من الإصدارات المنشورة تلقائيًا من مستودع MyOS.</p></div><span class="pill"><span class="dot"></span> <span id="releaseState">جارٍ فحص الإصدارات…</span></span></div>
+<div class="download-card"><div><div class="file-title"><div class="file-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg></div><div><h3 id="fileName">MyOS ISO</h3><p id="releaseInfo">جاري جلب أحدث إصدار منشور…</p></div></div><div class="meta"><span class="tag">.ISO</span><span class="tag">x86-64</span><span class="tag" id="versionTag">أحدث إصدار</span></div><div class="status" id="downloadStatus" aria-live="polite">يتم فحص صفحة الإصدارات الرسمية…</div></div><div class="actions" style="flex-direction:column;min-width:180px"><a class="btn primary" id="downloadButton" href="https://github.com/saraelnagar288-wq/MyOS/releases" target="_blank" rel="noreferrer">فتح التنزيلات ↗</a><a class="btn secondary" href="https://github.com/saraelnagar288-wq/MyOS/actions" target="_blank" rel="noreferrer">ملفات Actions</a></div></div>
+<div class="notice"><strong>مهم:</strong> ملفات Actions المؤقتة قد تنتهي صلاحيتها بعد مدة. لو لم تجد إصدارًا منشورًا، افتح صفحة Actions واختر آخر عملية بناء ناجحة ثم نزّل ملف ISO من قسم Artifacts. لا تفترض أن البناء ناجح قبل ظهور حالة نجاحه.</div>
+</section>
+<section id="features">
+<div class="section-head"><div><h2>قبل ما تنزّل</h2><p>كل ما تحتاج معرفته لتجربة MyOS بأمان.</p></div></div>
+<div class="grid">
+<article class="feature"><div class="ico">↗</div><h3>ابدأ داخل آلة افتراضية</h3><p>جرّب ملف ISO باستخدام Hyper-V أو QEMU قبل التفكير في تشغيله على جهازك الأساسي.</p></article>
+<article class="feature"><div class="ico">✓</div><h3>تحقق من الملف</h3><p>لو توفر ملف SHA-256 مع البناء، قارِن قيمة التحقق قبل استخدام ISO للتأكد من سلامة التنزيل.</p></article>
+<article class="feature"><div class="ico">⌘</div><h3>تطوير مفتوح</h3><p>راجع الكود وسجل التغييرات ومشكلات البناء من مستودع GitHub الرسمي.</p></article>
+</div>
+</section>
+<section id="help">
+<div class="section-head"><div><h2>أسئلة شائعة</h2><p>إجابات سريعة عن ملفات التنزيل.</p></div></div>
+<div class="faq">
+<details><summary>هل يوجد رابط ISO مباشر دائم؟</summary><p>الرابط المباشر يظهر هنا تلقائيًا عند نشر إصدار يحتوي على ملف ISO. أما ملفات Artifacts الخاصة بـ Actions فقد تتطلب تسجيل الدخول وتنتهي صلاحيتها.</p></details>
+<details><summary>ماذا أفعل لو لم يظهر إصدار؟</summary><p>افتح صفحة Actions، راجع أحدث تشغيل للـ workflow وتأكد أنه انتهى بنجاح، ثم نزّل ملف ISO من Artifacts. يمكن أيضًا مراجعة صفحة Releases.</p></details>
+<details><summary>هل MyOS جاهز للتثبيت على جهازي؟</summary><p>MyOS مشروع تجريبي قيد التطوير. توافق الإقلاع أو دعم الأجهزة ليس مضمونًا؛ استخدم آلة افتراضية أولًا ولا تعتمد عليه كنظامك الأساسي.</p></details>
+</div>
+</section>
+</main>
+<footer class="wrap footer"><span>© <span id="year"></span> MyOS Project · Download Center</span><span><a href="https://github.com/saraelnagar288-wq/MyOS">المستودع</a> · <a href="https://github.com/saraelnagar288-wq/MyOS/releases">الإصدارات</a> · <a href="https://github.com/saraelnagar288-wq/MyOS/actions">عمليات البناء</a></span></footer>
+<script>
+const repo='saraelnagar288-wq/MyOS';
+const $=id=>document.getElementById(id);
+$('year').textContent=new Date().getFullYear();
+async function loadRelease(){
+ try{
+  const response=await fetch('https://api.github.com/repos/'+repo+'/releases/latest',{headers:{'Accept':'application/vnd.github+json'}});
+  if(!response.ok) throw new Error('no published release');
+  const release=await response.json();
+  const asset=(release.assets||[]).find(a=>/\.iso$/i.test(a.name));
+  $('releaseState').textContent='إصدار منشور';
+  $('versionTag').textContent=release.tag_name||'Release';
+  $('releaseInfo').textContent=(release.name||release.tag_name||'MyOS Release')+' · '+new Date(release.published_at).toLocaleDateString('ar-EG');
+  if(asset){
+   $('fileName').textContent=asset.name;
+   $('downloadStatus').innerHTML='حجم الملف: <b>'+ (asset.size?((asset.size/1073741824).toFixed(2)+' GB'):'غير متاح')+'</b> · رابط من صفحة GitHub الرسمية';
+   $('downloadButton').href=asset.browser_download_url;
+   $('downloadButton').textContent='تنزيل ISO ↓';
+   $('downloadButton').removeAttribute('target');
+  }else{
+   $('downloadStatus').textContent='الإصدار موجود، لكن لم يتم العثور على ملف ISO ضمن مرفقاته.';
+   $('downloadButton').href=release.html_url;
+   $('downloadButton').textContent='فتح الإصدار ↗';
+  }
+ }catch(e){
+  $('releaseState').textContent='لا يوجد إصدار منشور متاح';
+  $('releaseInfo').textContent='لم يتم العثور على إصدار رسمي قابل للتنزيل حاليًا.';
+  $('downloadStatus').textContent='يمكنك مراجعة عمليات البناء للحصول على ISO من Artifacts إذا كان هناك بناء ناجح.';
+  $('downloadButton').href='https://github.com/'+repo+'/actions';
+  $('downloadButton').textContent='فتح ملفات البناء ↗';
+ }
+}
+loadRelease();
+</script>
+</body></html>
