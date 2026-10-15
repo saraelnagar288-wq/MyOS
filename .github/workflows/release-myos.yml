@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*"
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       version:
@@ -36,7 +38,7 @@ jobs:
 
       - name: Create update manifest
         env:
-          VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}
+          VERSION: ${{ github.ref_type == 'tag' && github.ref_name || inputs.version || format('0.0.0-dev.{0}', github.run_number) }}
           REPOSITORY: ${{ github.repository }}
           SERVER_URL: ${{ github.server_url }}
         run: |
