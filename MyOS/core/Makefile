@@ -28,7 +28,7 @@ MyOS.iso: myos.bin grub.cfg
 	$(GRUB_MKRESCUE) -o $@ iso
 
 run: MyOS.iso
-	qemu-system-x86_64 -cdrom MyOS.iso -serial stdio -m 256M -vga std
+	qemu-system-x86_64 -cdrom MyOS.iso -serial stdio -m 256M -vga std -netdev user,id=net0 -device e1000,netdev=net0
 
 clean:
 	rm -rf *.o myos.bin MyOS.iso iso
