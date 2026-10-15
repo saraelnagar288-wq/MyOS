@@ -11,10 +11,35 @@ struct multiboot_info {
  uint8_t framebuffer_bpp,framebuffer_type,color_info[6];
 } __attribute__((packed));
 
-static uint32_t *fb; static uint32_t pitch,sw,sh; static uint8_t launcher_open,settings_open,update_checked,boot_screen=1;
+static uint32_t *fb; static uint32_t pitch,sw,sh; static uint8_t launcher_open,settings_open,update_checked,nic_detected,boot_screen=1;
 
 static void outb(uint16_t p,uint8_t v){__asm__ volatile("outb %0,%1"::"a"(v),"Nd"(p));}
 static uint8_t inb(uint16_t p){uint8_t v;__asm__ volatile("inb %1,%0":"=a"(v):"Nd"(p));return v;}
+static void outl(uint16_t p,uint32_t v){__asm__ volatile("outl %0,%1"::"a"(v),"Nd"(p));}
+static uint32_t inl(uint16_t p){uint32_t v;__asm__ volatile("inl %1,%0":"=a"(v):"Nd"(p));return v;}
+static uint32_t pci_read32(uint8_t bus,uint8_t dev,uint8_t fn,uint8_t reg){
+ uint32_t address=0x80000000u|((uint32_t)bus<<16)|((uint32_t)dev<<11)|((uint32_t)fn<<8)|(reg&0xFCu);
+ outl(0xCF8,address);return inl(0xCFC);
+}
+/* First networking milestone: detect QEMU's Intel 82540EM E1000 NIC. */
+static int pci_detect_e1000(void){
+ for(uint32_t bus=0;bus<256;bus++)for(uint32_t dev=0;dev<32;dev++){
+  uint32_t id=pci_read32((uint8_t)bus,(uint8_t)dev,0,0);
+  if((id&0xFFFFu)==0xFFFFu)continue;
+  uint32_t classreg=pci_read32((uint8_t)bus,(uint8_t)dev,0,8);
+  if((id&0xFFFFu)==0x8086u&&((id>>16)&0xFFFFu)==0x100Eu&&((classreg>>24)&0xFFu)==0x02u)return 1;
+  uint32_t header=pci_read32((uint8_t)bus,(uint8_t)dev,0,0x0C);
+  uint32_t functions=((header>>16)&0x80u)?8u:1u;
+  for(uint32_t fn=1;fn<functions;fn++){
+   id=pci_read32((uint8_t)bus,(uint8_t)dev,(uint8_t)fn,0);
+   if((id&0xFFFFu)==0x8086u&&((id>>16)&0xFFFFu)==0x100Eu){
+    classreg=pci_read32((uint8_t)bus,(uint8_t)dev,(uint8_t)fn,8);
+    if(((classreg>>24)&0xFFu)==0x02u)return 1;
+   }
+  }
+ }
+ return 0;
+}
 static void serial_init(void){outb(0x3F9,0);outb(0x3FB,0x80);outb(0x3F8,3);outb(0x3F9,0);outb(0x3FB,3);outb(0x3FC,3);outb(0x3FA,0xC7);}
 static void serial_puts(const char*s){while(*s)outb(0x3F8,(uint8_t)*s++);}
 static void halt(void){for(;;)__asm__ volatile("hlt");}
@@ -73,7 +98,7 @@ static void cursor_hide(void){if(cursor_visible){cursor_restore(mouse_x,mouse_y)
 static void cursor_move(int nx,int ny){if(nx<0)nx=0;if(ny<0)ny=0;if(nx>(int)sw-CURSOR_W)nx=(int)sw-CURSOR_W;if(ny>(int)sh-CURSOR_H)ny=(int)sh-CURSOR_H;if(nx==mouse_x&&ny==mouse_y)return;cursor_hide();mouse_x=nx;mouse_y=ny;cursor_draw(mouse_x,mouse_y);}
 static void handle_mouse_click(int x,int y);
 static void mouse_poll(void){for(;;){uint8_t st=inb(0x64);if(!(st&1))break;/* Never consume keyboard bytes as mouse data. */if(!(st&0x20))break;uint8_t d=inb(0x60);if(mouse_cycle==0){if(!(d&8))continue;mouse_packet[0]=d;mouse_cycle=1;}else if(mouse_cycle==1){mouse_packet[1]=d;mouse_cycle=2;}else{mouse_packet[2]=d;mouse_cycle=0;int dx=(int8_t)mouse_packet[1],dy=(int8_t)mouse_packet[2];cursor_move(mouse_x+dx*2,mouse_y-dy*2);int old_buttons=mouse_buttons;mouse_buttons=mouse_packet[0]&7;if((mouse_buttons&1)&&!(old_buttons&1))handle_mouse_click(mouse_x,mouse_y);}}}
-static void draw_settings(void){uint32_t w=sw>700?560:sw-40,h=300,x=(sw-w)/2,y=100;window(x,y,w,h,"My Settings - Updates",0xFF805AD5);text(x+24,y+58,"System Updates",0xFFFFFFFF);text(x+24,y+82,"Installed version: development build",0xFFB7C3D0);text(x+24,y+104,"Release channel: stable (not connected)",0xFFB7C3D0);rect(x+24,y+140,190,38,0xFF2563EB);frame(x+24,y+140,190,38,0xFF60A5FA);text(x+38,y+155,"Check for Updates",0xFFFFFFFF);if(update_checked){text(x+24,y+198,"Online check is not available yet.",0xFFFBBF24);text(x+24,y+220,"Network, TLS and signed-manifest support",0xFFB7C3D0);text(x+24,y+238,"must be implemented before downloads.",0xFFB7C3D0);}else{text(x+24,y+198,"No update server is connected yet.",0xFFB7C3D0);text(x+24,y+220,"Updates will be verified before install.",0xFFB7C3D0);}text(x+24,y+270,"Esc = close  |  U = open update settings",0xFF6EE7B7);}
+static void draw_settings(void){uint32_t w=sw>700?560:sw-40,h=300,x=(sw-w)/2,y=100;window(x,y,w,h,"My Settings - Updates",0xFF805AD5);text(x+24,y+58,"System Updates",0xFFFFFFFF);text(x+24,y+82,"Installed version: development build",0xFFB7C3D0);text(x+24,y+104,"Release channel: stable",0xFFB7C3D0);rect(x+24,y+140,190,38,0xFF2563EB);frame(x+24,y+140,190,38,0xFF60A5FA);text(x+38,y+155,"Check for Updates",0xFFFFFFFF);if(update_checked){if(nic_detected){text(x+24,y+198,"Network adapter detected (E1000).",0xFF6EE7B7);text(x+24,y+220,"Online check still needs TCP/IP and HTTPS/TLS.",0xFFFBBF24);text(x+24,y+238,"No ISO is downloaded by this check.",0xFFB7C3D0);}else{text(x+24,y+198,"No supported E1000 network adapter found.",0xFFFBBF24);text(x+24,y+220,"Online check needs a NIC driver and TCP/IP.",0xFFB7C3D0);text(x+24,y+238,"No ISO is downloaded by this check.",0xFFB7C3D0);}}else{text(x+24,y+198,"Press Check to inspect network hardware.",0xFFB7C3D0);text(x+24,y+220,"Online release lookup is not wired yet.",0xFFFBBF24);}text(x+24,y+270,"Esc = close  |  U = open update settings",0xFF6EE7B7);}
 
 /* Native first-run screens. Disk installation and secure authentication are not implemented. */
 static void draw_welcome(void){
@@ -115,7 +140,7 @@ static void handle_mouse_click(int x,int y){
   cursor_hide();if(boot_screen==1)draw_welcome();else if(boot_screen==2)draw_installer();else if(boot_screen==3)draw_signin();else desktop();cursor_draw(mouse_x,mouse_y);return;
  }
  uint32_t w=sw>700?560:sw-40,pw_x=(sw-w)/2,pw_y=100;int open_settings=0;
- if(settings_open){if(y>=(int)pw_y&&y<(int)pw_y+38&&x>=(int)(pw_x+w-42))settings_open=0;else if(x>=(int)pw_x+24&&x<(int)pw_x+214&&y>=(int)pw_y+140&&y<(int)pw_y+178)update_checked=1;else return;}
+ if(settings_open){if(y>=(int)pw_y&&y<(int)pw_y+38&&x>=(int)(pw_x+w-42))settings_open=0;else if(x>=(int)pw_x+24&&x<(int)pw_x+214&&y>=(int)pw_y+140&&y<(int)pw_y+178){update_checked=1;nic_detected=(uint8_t)pci_detect_e1000();}else return;}
  else{uint32_t ww=sw>900?650:(sw>700?570:sw-120),wx=(sw-ww)/2,wy=100;if((x>=15&&x<=75&&y>=210&&y<=258)||(x>=162&&x<=206&&y>=(int)sh-42&&y<(int)sh-10))open_settings=1;if(x>=(int)wx+374&&x<(int)wx+524&&y>=(int)wy+180&&y<(int)wy+252)open_settings=1;if(launcher_open){uint32_t lw=sw>850?560:sw-80,lh=sh>650?430:sh-150,lx=(sw-lw)/2,ly=(sh-lh)/2;if(x>=(int)lx+360&&x<(int)lx+510&&y>=(int)ly+112&&y<(int)ly+200)open_settings=1;}if(!open_settings)return;settings_open=1;launcher_open=0;}
  cursor_hide();desktop();cursor_draw(mouse_x,mouse_y);
 }
@@ -134,4 +159,4 @@ static void input(void){
  if(s==0x01){cursor_hide();launcher_open=0;settings_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
  if(s==0x16){cursor_hide();settings_open=1;launcher_open=0;desktop();cursor_draw(mouse_x,mouse_y);}
 }
-void kernel_main(uint64_t magic,struct multiboot_info*mb){serial_init();serial_puts("MyOS: kernel start\r\n");if((uint32_t)magic!=MULTIBOOT_MAGIC||!mb){vga_msg("MyOS: invalid Multiboot data",0x4F);halt();}if(!(mb->flags&FB_FLAG)||!mb->framebuffer_addr||mb->framebuffer_bpp!=32||!mb->framebuffer_pitch){vga_msg("MyOS: framebuffer unavailable",0x4E);halt();}fb=(uint32_t*)(uintptr_t)mb->framebuffer_addr;pitch=mb->framebuffer_pitch;sw=mb->framebuffer_width;sh=mb->framebuffer_height;if(sw<320||sh<200){vga_msg("MyOS: invalid framebuffer size",0x4E);halt();}memory_init(mb->mem_upper);{struct myos_memory_stats ms;memory_stats(&ms);serial_puts("MyOS: memory manager online\r\n");if(ms.heap_end>ms.heap_start)serial_puts("MyOS: kernel heap available\r\n");else serial_puts("MyOS: kernel heap unavailable\r\n");}mouse_x=(int)sw/2;mouse_y=(int)sh/2;draw_welcome();mouse_init();cursor_draw(mouse_x,mouse_y);serial_puts("MyOS: first-run welcome screen ready\r\n");for(;;){input();mouse_poll();__asm__ volatile("pause");}}
+void kernel_main(uint64_t magic,struct multiboot_info*mb){serial_init();serial_puts("MyOS: kernel start\r\n");if((uint32_t)magic!=MULTIBOOT_MAGIC||!mb){vga_msg("MyOS: invalid Multiboot data",0x4F);halt();}if(!(mb->flags&FB_FLAG)||!mb->framebuffer_addr||mb->framebuffer_bpp!=32||!mb->framebuffer_pitch){vga_msg("MyOS: framebuffer unavailable",0x4E);halt();}fb=(uint32_t*)(uintptr_t)mb->framebuffer_addr;pitch=mb->framebuffer_pitch;sw=mb->framebuffer_width;sh=mb->framebuffer_height;if(sw<320||sh<200){vga_msg("MyOS: invalid framebuffer size",0x4E);halt();}memory_init(mb->mem_upper);nic_detected=(uint8_t)pci_detect_e1000();if(nic_detected)serial_puts("MyOS: E1000 network adapter detected (TCP/IP not yet available)\r\n");else serial_puts("MyOS: no supported E1000 adapter detected\r\n");{struct myos_memory_stats ms;memory_stats(&ms);serial_puts("MyOS: memory manager online\r\n");if(ms.heap_end>ms.heap_start)serial_puts("MyOS: kernel heap available\r\n");else serial_puts("MyOS: kernel heap unavailable\r\n");}mouse_x=(int)sw/2;mouse_y=(int)sh/2;draw_welcome();mouse_init();cursor_draw(mouse_x,mouse_y);serial_puts("MyOS: first-run welcome screen ready\r\n");for(;;){input();mouse_poll();__asm__ volatile("pause");}}
