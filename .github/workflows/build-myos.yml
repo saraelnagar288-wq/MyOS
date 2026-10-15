@@ -49,6 +49,10 @@ jobs:
             echo "BIOS smoke test did not reach kernel_main"
             exit 1
           fi
+          if ! grep -q "MyOS: E1000 network adapter detected" /tmp/myos-bios.log; then
+            echo "BIOS smoke test did not detect the configured E1000 NIC"
+            exit 1
+          fi
 
       - name: UEFI boot smoke test
         working-directory: MyOS/core
@@ -69,6 +73,10 @@ jobs:
           fi
           if ! grep -q "MyOS: kernel start" /tmp/myos-uefi.log; then
             echo "UEFI smoke test did not reach kernel_main"
+            exit 1
+          fi
+          if ! grep -q "MyOS: E1000 network adapter detected" /tmp/myos-uefi.log; then
+            echo "UEFI smoke test did not detect the configured E1000 NIC"
             exit 1
           fi
 
