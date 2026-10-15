@@ -39,7 +39,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          timeout 8s qemu-system-x86_64 -cdrom MyOS.iso -m 256M -vga std -serial stdio -display none 2>&1 | tee /tmp/myos-bios.log
+          timeout 8s qemu-system-x86_64 -cdrom MyOS.iso -m 256M -vga std -serial stdio -display none -netdev user,id=net0 -device e1000,netdev=net0 2>&1 | tee /tmp/myos-bios.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
             echo "QEMU BIOS smoke test failed with exit code $status"
@@ -61,7 +61,7 @@ jobs:
             exit 1
           fi
           set +e
-          timeout 8s qemu-system-x86_64 -cdrom MyOS.iso -m 256M -vga std -serial stdio -display none -drive if=pflash,format=raw,unit=0,file="$OVMF_CODE",readonly=on 2>&1 | tee /tmp/myos-uefi.log
+          timeout 8s qemu-system-x86_64 -cdrom MyOS.iso -m 256M -vga std -serial stdio -display none -netdev user,id=net0 -device e1000,netdev=net0 -drive if=pflash,format=raw,unit=0,file="$OVMF_CODE",readonly=on 2>&1 | tee /tmp/myos-uefi.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ] && [ "$status" -ne 124 ]; then
             echo "QEMU UEFI smoke test failed with exit code $status"
